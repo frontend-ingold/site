@@ -1,13 +1,34 @@
 import { useEffect, useState } from "react";
 
-const heroContent = {
-  count: "02",
-  title: "Modern and timeless clothes from the best stylists.",
-  description:
-    "These dresses are often bold and eye-catching, and they can be dressed up or down depending on the occasion.",
-  topHotspot: "Cotton Hat",
-  bottomHotspot: "Junior Sweatshirt Kids"
-};
+const heroSlides = [
+  {
+    id: 1,
+    count: "01",
+    title: "Modern and trending fashion for everyone",
+    description:
+      "Fashion allows individuals to showcase their personality, creativity, and cultural identity, while also serving practical purposes such as protection and comfort.",
+    topHotspot: "Down Cotton Tshirt for Women",
+    bottomHotspot: "Girls Frock Dress"
+  },
+  {
+    id: 2,
+    count: "02",
+    title: "Modern and timeless clothes from the best stylists.",
+    description:
+      "These dresses are often bold and eye-catching, and they can be dressed up or down depending on the occasion.",
+    topHotspot: "Cotton Hat",
+    bottomHotspot: "Junior Sweatshirt Kids"
+  },
+  {
+    id: 3,
+    count: "03",
+    title: "Make a Great Impression By Wearing The Right Clothes",
+    description:
+      "Denim is always a classic, and it's no exception in 2023. Denim jackets, jeans, and skirts are all popular trends this year.",
+    topHotspot: "Pro Blue Running Sports",
+    bottomHotspot: "Rust Solid Culottes"
+  }
+];
 
 const heroProducts = [
   {
@@ -39,17 +60,28 @@ const heroProducts = [
   }
 ];
 
+const partners = ["VOGUE", "VOGUE", "VOGUE", "VOGUE"];
+
 export function Hero() {
+  const [activeSlide, setActiveSlide] = useState(1);
   const [activeProduct, setActiveProduct] = useState(0);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    const textTimer = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1) % heroSlides.length);
+    }, 4000);
+
+    const productTimer = window.setInterval(() => {
       setActiveProduct((current) => (current + 1) % heroProducts.length);
     }, 4000);
 
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(textTimer);
+      window.clearInterval(productTimer);
+    };
   }, []);
 
+  const slide = heroSlides[activeSlide];
   const product = heroProducts[activeProduct];
 
   return (
@@ -70,37 +102,71 @@ export function Hero() {
         </aside>
 
         <div className="hero-copy hero-copy--overlay">
-          <p className="hero-count">
-            <strong>{heroContent.count}</strong>
-            <span>/ 03</span>
-          </p>
-          <h1>{heroContent.title}</h1>
-          <p className="hero-text hero-text--light">{heroContent.description}</p>
-          <a href="/" onClick={(event) => event.preventDefault()} className="hero-shop-button">
-            SHOP NOW
-            <span>»</span>
-          </a>
+          <div className="home-banner-content">
+            <div
+              className="home-slider"
+              style={{
+                width: `${heroSlides.length * 684}px`,
+                left: `${activeSlide * -684}px`,
+                top: "0px",
+                zIndex: 999,
+                opacity: 1
+              }}
+            >
+              {heroSlides.map((item, index) => (
+                <article
+                  key={item.id}
+                  className="slick-slide hero-slide"
+                  data-slick-index={index}
+                  aria-hidden={index !== activeSlide}
+                  style={{ width: "684px" }}
+                >
+                  <p className="hero-count">
+                    <strong>{item.count}</strong>
+                    <span>/ 03</span>
+                  </p>
+
+                  <div className="home-banner-content-inner">
+                    <div className="banner-content-inner">
+                      <div className="section-title">
+                        <h1>{item.title}</h1>
+                      </div>
+                      <p className="hero-text hero-text--light">{item.description}</p>
+                      <a
+                        href="/"
+                        onClick={(event) => event.preventDefault()}
+                        className="hero-shop-button"
+                      >
+                        SHOP NOW
+                        <span>»</span>
+                      </a>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="hero-hotspot hero-hotspot--top">
           <button type="button" aria-label="Featured product point">
             +
           </button>
-          <span>{heroContent.topHotspot}</span>
+          <span>{slide.topHotspot}</span>
         </div>
 
         <div className="hero-hotspot hero-hotspot--bottom">
           <button type="button" aria-label="Featured product point">
             +
           </button>
-          <span>{heroContent.bottomHotspot}</span>
+          <span>{slide.bottomHotspot}</span>
         </div>
 
         <div className="partner-strip">
           <span className="partner-strip__label">PARTNERS</span>
           <div className="partner-strip__viewport">
             <div className="partner-strip__track">
-              {["VOGUE", "VOGUE", "VOGUE", "VOGUE"].map((partner, index) => (
+              {partners.concat(partners).map((partner, index) => (
                 <span key={`${partner}-${index}`}>{partner}</span>
               ))}
             </div>

@@ -13,17 +13,26 @@ export function FeaturedProducts({ items }) {
 
       <div className="product-grid">
         {items.map((item) => (
-          <article className="product-card" key={item.name}>
-            <div className={`product-media accent-${item.accent}`}>
-              <span>{item.badge}</span>
-            </div>
-            <div className="product-copy">
-              <p>{item.category}</p>
+          <article className="product-card product-card--catalog" key={item.name}>
+            <div className="product-copy product-copy--catalog">
+              <p className="product-brand">{item.brand}</p>
               <h3>{item.name}</h3>
-              <div className="product-row">
+              <p className="product-type">{item.category}</p>
+            </div>
+            <div className="product-media product-media--image">
+              <img src={item.image} alt={item.name} />
+            </div>
+            <div className="product-copy product-copy--catalog product-copy--bottom">
+              <div className="product-price-row">
                 <strong>{item.price}</strong>
-                <button type="button">Add to cart</button>
+                {item.oldPrice ? <span>{item.oldPrice}</span> : null}
               </div>
+              <p className="product-option">
+                {item.optionLabel}:{item.optionValue}
+              </p>
+              <button type="button" className="product-action-button">
+                {item.buttonLabel} »
+              </button>
             </div>
           </article>
         ))}

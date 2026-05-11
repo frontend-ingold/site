@@ -1,8 +1,8 @@
 export function Newsletter() {
   return (
-    <section className="section container">
-      <div className="newsletter-card">
-        <div>
+    <section className="newsletter-section">
+      <div className="container newsletter-card">
+        <div className="newsletter-copy">
           <p className="eyebrow">Newsletter</p>
           <h2>Join for launch edits, offers, and trend notes.</h2>
         </div>
