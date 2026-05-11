@@ -1,0 +1,15 @@
+{
+  "name": "dress-ecommerce-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "client:dev": "npm --workspace client run dev",
+    "client:build": "npm --workspace client run build",
+    "server:dev": "npm --workspace server run dev",
+    "server:start": "npm --workspace server run start"
+  }
+}
