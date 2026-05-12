@@ -22,7 +22,7 @@ const blogLinks = ["Blogs Page", "Article Page"];
 const collectionLinks = ["Cloths", "Dress", "Hats", "Jeans", "shoes", "Sweater", "westen top", "Women Top"];
 
 const localPanelLabels = new Set(["PAGES", "BLOGS", "COLLECTIONS"]);
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://clothsapi.vercel.app";
 
 export function Header() {
   const [isVisible, setIsVisible] = useState(true);
