@@ -90,16 +90,6 @@ export function Hero() {
         <div className="hero-banner__image" aria-hidden="true" />
         <div className="hero-banner__overlay" />
 
-        <aside className="hero-share">
-          <span>SHARE US</span>
-          <div className="hero-share__icons">
-            {["f", "x", "in", "o"].map((icon) => (
-              <button type="button" key={icon} aria-label={`Share on ${icon}`}>
-                {icon}
-              </button>
-            ))}
-          </div>
-        </aside>
 
         <div className="hero-copy hero-copy--overlay">
           <div className="home-banner-content">

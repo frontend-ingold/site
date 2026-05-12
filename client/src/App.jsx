@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import {
   benefits,
   categories,
@@ -9,6 +10,7 @@ import {
   testimonialsSection
 } from "./data/homepage";
 import { Benefits } from "./components/Benefits";
+import { AuthPage } from "./components/AuthPage";
 import { CategoryGrid } from "./components/CategoryGrid";
 import { EditorialBanner } from "./components/EditorialBanner";
 import { FeaturedProducts } from "./components/FeaturedProducts";
@@ -21,7 +23,30 @@ import { TestimonialsSection } from "./components/TestimonialsSection";
 
 import { SpotlightBanner } from "./components/SpotlightBanner";
 
+const authRoutes = new Set(["login", "register", "forgot-password"]);
+
+function getCurrentRoute() {
+  const hash = window.location.hash.replace(/^#\/?/, "");
+  return authRoutes.has(hash) ? hash : "home";
+}
+
 function App() {
+  const [route, setRoute] = useState(getCurrentRoute);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setRoute(getCurrentRoute());
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  if (route !== "home") {
+    return <AuthPage route={route} />;
+  }
+
   return (
     <div className="page-shell">
       <Header />

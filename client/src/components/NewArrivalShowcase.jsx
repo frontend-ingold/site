@@ -91,10 +91,10 @@ export function NewArrivalShowcase({ content }) {
               &#8250;
             </button>
           </div>
+        </div>
 
-          <div className="arrival-showcase__side-image" aria-hidden="true">
-            <img src={content.sideImage} alt="" />
-          </div>
+        <div className="arrival-showcase__side-image" aria-hidden="true">
+          <img src={content.sideImage} alt="" />
         </div>
       </div>
     </section>
