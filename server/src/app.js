@@ -6,9 +6,14 @@ import apiRouter from "./routes/index.js";
 dotenv.config();
 
 const app = express();
+
+function normalizeOrigin(origin) {
+  return origin.replace(/\/+$/, "");
+}
+
 const configuredOrigins = (process.env.CLIENT_ORIGIN || "http://localhost:5173")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => normalizeOrigin(origin.trim()))
   .filter(Boolean);
 
 app.use(
@@ -24,7 +29,9 @@ app.use(
         return;
       }
 
-      if (configuredOrigins.includes(origin)) {
+      const normalizedOrigin = normalizeOrigin(origin);
+
+      if (configuredOrigins.includes(normalizedOrigin)) {
         callback(null, true);
         return;
       }
