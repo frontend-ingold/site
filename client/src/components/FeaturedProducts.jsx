@@ -1,4 +1,8 @@
+import { useCart } from "../context/CartContext";
+
 export function FeaturedProducts({ items }) {
+  const { addItem } = useCart();
+
   return (
     <section className="section container">
       <div className="section-heading split">
@@ -30,8 +34,28 @@ export function FeaturedProducts({ items }) {
               <p className="product-option">
                 {item.optionLabel}:{item.optionValue}
               </p>
-              <button type="button" className="product-action-button">
-                {item.buttonLabel} »
+              <button
+                type="button"
+                className="product-action-button"
+                onClick={() => {
+                  if (!item.inStock) {
+                    return;
+                  }
+
+                  addItem({
+                    id: item.id,
+                    productId: item.id,
+                    name: item.name,
+                    category: item.category,
+                    price: item.price,
+                    image: item.image,
+                    optionLabel: item.optionLabel,
+                    optionValue: item.optionValue,
+                    quantity: 1
+                  });
+                }}
+              >
+                {item.buttonLabel} &raquo;
               </button>
             </div>
           </article>

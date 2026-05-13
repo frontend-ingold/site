@@ -1,7 +1,34 @@
-import { useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useCart } from "../context/CartContext";
 
 export function NewArrivalShowcase({ content }) {
   const viewportRef = useRef(null);
+  const { addItem } = useCart();
+  const normalizedTabs = useMemo(() => {
+    return (content.tabs ?? []).map((item) =>
+      typeof item === "string"
+        ? { label: item, slug: item.toLowerCase().replace(/[^a-z0-9]+/g, "-"), description: content.description, image: content.sideImage }
+        : item
+    );
+  }, [content.description, content.sideImage, content.tabs]);
+  const [activeTabSlug, setActiveTabSlug] = useState(normalizedTabs[0]?.slug ?? "all");
+
+  useEffect(() => {
+    setActiveTabSlug(normalizedTabs[0]?.slug ?? "all");
+  }, [normalizedTabs]);
+
+  const activeTab = normalizedTabs.find((item) => item.slug === activeTabSlug) ?? normalizedTabs[0] ?? null;
+  const visibleProducts = useMemo(() => {
+    if (!activeTab?.slug) {
+      return content.products ?? [];
+    }
+
+    return (content.products ?? []).filter((item) => item.collectionSlug === activeTab.slug);
+  }, [activeTab?.slug, content.products]);
+
+  useEffect(() => {
+    viewportRef.current?.scrollTo({ left: 0, behavior: "auto" });
+  }, [activeTabSlug]);
 
   const scrollCards = (direction) => {
     const viewport = viewportRef.current;
@@ -40,14 +67,21 @@ export function NewArrivalShowcase({ content }) {
             <h3>{content.title}</h3>
 
             <div className="arrival-showcase__tabs" aria-label="Arrival categories">
-              {content.tabs.map((item) => (
-                <button type="button" key={item}>
-                  {item}
+              {normalizedTabs.map((item) => (
+                <button
+                  type="button"
+                  key={item.slug}
+                  className={item.slug === activeTabSlug ? "is-active" : ""}
+                  onClick={() => {
+                    setActiveTabSlug(item.slug);
+                  }}
+                >
+                  {item.label}
                 </button>
               ))}
             </div>
 
-            <p>{content.description}</p>
+            <p>{activeTab?.description || content.description}</p>
           </div>
 
           <div className="arrival-showcase__slider">
@@ -57,7 +91,7 @@ export function NewArrivalShowcase({ content }) {
 
             <div className="arrival-showcase__viewport" ref={viewportRef}>
               <div className="arrival-showcase__track">
-                {content.products.map((item) => (
+                {visibleProducts.map((item) => (
                   <article className="arrival-product-card" key={item.name}>
                     <p className="arrival-product-card__brand">{item.brand}</p>
                     <h4>{item.name}</h4>
@@ -78,8 +112,28 @@ export function NewArrivalShowcase({ content }) {
                       <i>&#8964;</i>
                     </button>
 
-                    <button type="button" className="arrival-product-card__button">
-                      ADD TO CART
+                    <button
+                      type="button"
+                      className="arrival-product-card__button"
+                      onClick={() => {
+                        if (!item.inStock) {
+                          return;
+                        }
+
+                        addItem({
+                          id: item.id,
+                          productId: item.id,
+                          name: item.name,
+                          category: item.category,
+                          price: item.price,
+                          image: item.image,
+                          optionLabel: item.optionLabel,
+                          optionValue: item.optionValue,
+                          quantity: 1
+                        });
+                      }}
+                    >
+                      {item.buttonLabel || "ADD TO CART"}
                       <span>&raquo;</span>
                     </button>
                   </article>
@@ -94,7 +148,7 @@ export function NewArrivalShowcase({ content }) {
         </div>
 
         <div className="arrival-showcase__side-image" aria-hidden="true">
-          <img src={content.sideImage} alt="" />
+          <img src={activeTab?.image || content.sideImage} alt="" />
         </div>
       </div>
     </section>

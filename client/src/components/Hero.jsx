@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useCart } from "../context/CartContext";
 
 const heroSlides = [
   {
@@ -63,6 +64,7 @@ const heroProducts = [
 const partners = ["VOGUE", "VOGUE", "VOGUE", "VOGUE"];
 
 export function Hero() {
+  const { addItem } = useCart();
   const [activeSlide, setActiveSlide] = useState(1);
   const [activeProduct, setActiveProduct] = useState(0);
 
@@ -89,7 +91,6 @@ export function Hero() {
       <div className="hero-banner__left">
         <div className="hero-banner__image" aria-hidden="true" />
         <div className="hero-banner__overlay" />
-
 
         <div className="hero-copy hero-copy--overlay">
           <div className="home-banner-content">
@@ -122,13 +123,9 @@ export function Hero() {
                         <h1>{item.title}</h1>
                       </div>
                       <p className="hero-text hero-text--light">{item.description}</p>
-                      <a
-                        href="/"
-                        onClick={(event) => event.preventDefault()}
-                        className="hero-shop-button"
-                      >
+                      <a href="/" onClick={(event) => event.preventDefault()} className="hero-shop-button">
                         SHOP NOW
-                        <span>»</span>
+                        <span>&raquo;</span>
                       </a>
                     </div>
                   </div>
@@ -179,7 +176,24 @@ export function Hero() {
             <p className="showcase-card__color">
               COLOR:<span>{product.color}</span>
             </p>
-            <button type="button">ADD TO CART »</button>
+            <button
+              type="button"
+              onClick={() => {
+                addItem({
+                  id: `hero-${product.id}`,
+                  productId: `hero-${product.id}`,
+                  name: product.name,
+                  category: product.label,
+                  price: product.price,
+                  image: product.image,
+                  optionLabel: "COLOR:",
+                  optionValue: product.color,
+                  quantity: 1
+                });
+              }}
+            >
+              ADD TO CART &raquo;
+            </button>
           </article>
 
           <div className="showcase-dots" aria-label="Product slides">

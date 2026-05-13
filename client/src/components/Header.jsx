@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 
 const navItems = [
   { label: "ALL CATEGORY", href: "#/" },
@@ -19,19 +21,28 @@ const pagesLinks = [
 
 const blogLinks = ["Blogs Page", "Article Page"];
 
-const collectionLinks = ["Cloths", "Dress", "Hats", "Jeans", "shoes", "Sweater", "westen top", "Women Top"];
-
 const localPanelLabels = new Set(["PAGES", "BLOGS", "COLLECTIONS"]);
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://clothsapi.vercel.app";
+const apiBaseUrl =
+  import.meta.env.VITE_API_BASE_URL ||
+  (window.location.hostname === "localhost" ? "http://localhost:5000" : "https://clothsapi.vercel.app");
 
-export function Header() {
+export function Header({ alwaysSolid = false }) {
+  const { itemCount, openCart } = useCart();
+  const { user, isLoggedIn, logout } = useAuth();
   const [isVisible, setIsVisible] = useState(true);
-  const [isScrolled, setIsScrolled] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(alwaysSolid);
   const [menuGroups, setMenuGroups] = useState([]);
   const [shopCards, setShopCards] = useState([]);
   const [openNavLabel, setOpenNavLabel] = useState(null);
+  const [activeMenuGroupId, setActiveMenuGroupId] = useState(null);
 
   useEffect(() => {
+    if (alwaysSolid) {
+      setIsScrolled(true);
+      setIsVisible(true);
+      return undefined;
+    }
+
     let lastScrollY = window.scrollY;
     let ticking = false;
 
@@ -66,7 +77,7 @@ export function Header() {
 
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [alwaysSolid]);
 
   useEffect(() => {
     let isMounted = true;
@@ -82,6 +93,7 @@ export function Header() {
         if (isMounted) {
           setMenuGroups(data.groups ?? []);
           setShopCards(data.shopCards ?? []);
+          setActiveMenuGroupId(data.groups?.[0]?.id ?? null);
         }
       } catch (error) {
         console.error("Failed to load category menu", error);
@@ -96,17 +108,24 @@ export function Header() {
   }, []);
 
   const promoImage = useMemo(() => {
-    return menuGroups.find((group) => group.promoImageUrl)?.promoImageUrl || "/assets/hero/banner-img.webp";
-  }, [menuGroups]);
+    return (
+      menuGroups.find((group) => group.id === activeMenuGroupId)?.promoImageUrl ||
+      menuGroups.find((group) => group.promoImageUrl)?.promoImageUrl ||
+      "/assets/hero/banner-img.webp"
+    );
+  }, [activeMenuGroupId, menuGroups]);
 
   const isSharedPanelOpen = openNavLabel !== null && !localPanelLabels.has(openNavLabel);
+  const accountLabel = isLoggedIn
+    ? `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email || "My Account"
+    : "Log In";
 
   function renderLocalPanelContent(label) {
     if (label === "PAGES") {
       return (
         <div className="nav-simple-panel">
           {pagesLinks.map((item) => (
-            <a href="#/" key={item} className="nav-simple-panel__link">
+            <a href="#/" key={item} className="nav-simple-panel__link" onClick={(event) => event.preventDefault()}>
               {item}
             </a>
           ))}
@@ -118,7 +137,7 @@ export function Header() {
       return (
         <div className="nav-simple-panel">
           {blogLinks.map((item) => (
-            <a href="#/" key={item} className="nav-simple-panel__link">
+            <a href="#/" key={item} className="nav-simple-panel__link" onClick={(event) => event.preventDefault()}>
               {item}
             </a>
           ))}
@@ -129,9 +148,9 @@ export function Header() {
     if (label === "COLLECTIONS") {
       return (
         <div className="nav-simple-panel nav-simple-panel--collections">
-          {collectionLinks.map((item) => (
-            <a href="#/" key={item} className="nav-simple-panel__link">
-              {item}
+          {shopCards.map((item) => (
+            <a href={item.href} key={item.id} className="nav-simple-panel__link">
+              {item.title}
             </a>
           ))}
         </div>
@@ -146,7 +165,7 @@ export function Header() {
       return (
         <div className="nav-card-panel">
           {shopCards.map((item) => (
-            <a href={item.href} key={item.id} className="nav-card-panel__item">
+            <a href={item.href} key={item.id} className="nav-card-panel__item" onClick={() => setOpenNavLabel(null)}>
               <img src={item.image} alt={item.title} />
               <span>{item.title}</span>
             </a>
@@ -159,11 +178,15 @@ export function Header() {
       <div className="nav-mega-menu__content">
         <div className="nav-mega-menu__columns">
           {menuGroups.map((group) => (
-            <div className="nav-mega-menu__group" key={group.id}>
+            <div
+              className={`nav-mega-menu__group ${group.id === activeMenuGroupId ? "nav-mega-menu__group--active" : ""}`}
+              key={group.id}
+              onMouseEnter={() => setActiveMenuGroupId(group.id)}
+            >
               <h3>{group.name}</h3>
               <div className="nav-mega-menu__links">
                 {group.items.map((menuItem) => (
-                  <a href={menuItem.href} key={menuItem.id}>
+                  <a href={menuItem.href} key={menuItem.id} onClick={() => setOpenNavLabel(null)}>
                     {menuItem.name}
                   </a>
                 ))}
@@ -211,11 +234,7 @@ export function Header() {
                     <span className={`nav-caret nav-caret--animated ${isOpen ? "nav-caret--open" : ""}`}>▼</span>
                   </button>
 
-                  {hasLocalPanel ? (
-                    <div className={`nav-inline-panel ${isOpen ? "nav-inline-panel--open" : ""}`}>
-                      {renderLocalPanelContent(item.label)}
-                    </div>
-                  ) : null}
+                  {hasLocalPanel ? <div className={`nav-inline-panel ${isOpen ? "nav-inline-panel--open" : ""}`}>{renderLocalPanelContent(item.label)}</div> : null}
                 </div>
               );
             })}
@@ -225,7 +244,13 @@ export function Header() {
             <button
               type="button"
               className="header-inline-action"
-              onClick={() => {
+              onClick={async () => {
+                if (isLoggedIn) {
+                  await logout();
+                  window.location.hash = "/";
+                  return;
+                }
+
                 window.location.hash = "/login";
               }}
             >
@@ -247,8 +272,8 @@ export function Header() {
                   />
                 </svg>
               </span>
-              <span>Log In</span>
-              <span className="nav-caret">▼</span>
+              <span>{accountLabel}</span>
+              <span className="nav-caret">{isLoggedIn ? "↗" : "▼"}</span>
             </button>
 
             <button type="button" className="nav-pill nav-pill--flag">
@@ -270,7 +295,7 @@ export function Header() {
               </svg>
             </button>
 
-            <button type="button" className="header-inline-action header-inline-action--cart">
+            <button type="button" className="header-inline-action header-inline-action--cart" onClick={openCart}>
               <span className="header-inline-icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
@@ -284,14 +309,16 @@ export function Header() {
                   <circle cx="17" cy="19" r="1.6" fill="currentColor" />
                 </svg>
               </span>
-              <span>CART(0)</span>
+              <span>CART({itemCount})</span>
             </button>
           </div>
         </div>
 
-        <div className={`header-shared-panel ${isSharedPanelOpen ? "header-shared-panel--open" : ""}`}>
-          <div className="nav-mega-menu__panel">{renderSharedPanelContent()}</div>
-        </div>
+        {isSharedPanelOpen ? (
+          <div className="header-shared-panel header-shared-panel--open">
+            <div className="nav-mega-menu__panel">{renderSharedPanelContent()}</div>
+          </div>
+        ) : null}
       </div>
     </header>
   );

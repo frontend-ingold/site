@@ -22,13 +22,18 @@ export async function getCategoryMenu(_request, response) {
     const shopCardsResult = await pool.query(
       `
         SELECT
-          id,
-          title,
-          image_url,
-          href,
-          sort_order
-        FROM nav_shop_cards
-        ORDER BY sort_order ASC
+          card.id,
+          card.slug,
+          card.title,
+          card.description,
+          card.image_url,
+          card.href,
+          COUNT(product.id)::INTEGER AS item_count,
+          card.sort_order
+        FROM nav_shop_cards card
+        LEFT JOIN collection_products product ON product.collection_slug = card.slug
+        GROUP BY card.id
+        ORDER BY card.sort_order ASC
       `
     );
 
@@ -57,9 +62,12 @@ export async function getCategoryMenu(_request, response) {
       groups: Array.from(groupsMap.values()),
       shopCards: shopCardsResult.rows.map((row) => ({
         id: row.id,
+        slug: row.slug,
         title: row.title,
+        description: row.description,
         image: row.image_url,
-        href: row.href
+        href: row.href,
+        itemCount: row.item_count
       }))
     });
   } catch (error) {

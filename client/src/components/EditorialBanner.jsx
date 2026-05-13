@@ -1,4 +1,8 @@
+import { useCart } from "../context/CartContext";
+
 export function EditorialBanner({ content }) {
+  const { addItem } = useCart();
+
   return (
     <section className="section editorial-banner-section">
       <article
@@ -28,7 +32,28 @@ export function EditorialBanner({ content }) {
               <p className="editorial-product-card__option">
                 {item.optionLabel}:{item.optionValue}
               </p>
-              <button type="button">{item.buttonLabel} »</button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!item.inStock) {
+                    return;
+                  }
+
+                  addItem({
+                    id: item.id,
+                    productId: item.id,
+                    name: item.name,
+                    category: item.category,
+                    price: item.price,
+                    image: item.image,
+                    optionLabel: item.optionLabel,
+                    optionValue: item.optionValue,
+                    quantity: 1
+                  });
+                }}
+              >
+                {item.buttonLabel} &raquo;
+              </button>
             </article>
           ))}
         </div>

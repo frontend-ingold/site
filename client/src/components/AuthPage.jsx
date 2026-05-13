@@ -1,3 +1,6 @@
+import { useState } from "react";
+import { useAuth } from "../context/AuthContext";
+
 const authContent = {
   login: {
     eyebrow: "Welcome back",
@@ -38,9 +41,74 @@ const highlights = [
 ];
 
 export function AuthPage({ route }) {
+  const { register, login, forgotPassword } = useAuth();
   const content = authContent[route] ?? authContent.login;
   const isRegister = route === "register";
   const isForgotPassword = route === "forgot-password";
+  const [formState, setFormState] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    keepSignedIn: false,
+    agreeTerms: false
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+
+  function updateField(field, value) {
+    setFormState((current) => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setErrorMessage("");
+    setSuccessMessage("");
+    setIsSubmitting(true);
+
+    try {
+      if (isRegister) {
+        if (!formState.agreeTerms) {
+          throw new Error("Please accept the privacy policy and terms.");
+        }
+
+        await register({
+          firstName: formState.firstName,
+          lastName: formState.lastName,
+          email: formState.email,
+          password: formState.password,
+          confirmPassword: formState.confirmPassword
+        });
+
+        window.location.hash = "/";
+        return;
+      }
+
+      if (isForgotPassword) {
+        const message = await forgotPassword({
+          email: formState.email
+        });
+        setSuccessMessage(message);
+        return;
+      }
+
+      await login({
+        email: formState.email,
+        password: formState.password
+      });
+
+      window.location.hash = "/";
+    } catch (error) {
+      setErrorMessage(error.message || "Authentication failed.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <main className="auth-shell">
@@ -79,37 +147,42 @@ export function AuthPage({ route }) {
             <p>{content.description}</p>
           </div>
 
-          <form className="auth-form" onSubmit={(event) => event.preventDefault()}>
+          <form className="auth-form" onSubmit={handleSubmit}>
             {isRegister ? (
               <div className="auth-form__split">
                 <label className="auth-field">
                   <span>First name</span>
-                  <input type="text" placeholder="Ava" />
+                  <input type="text" placeholder="Ava" value={formState.firstName} onChange={(event) => updateField("firstName", event.target.value)} />
                 </label>
 
                 <label className="auth-field">
                   <span>Last name</span>
-                  <input type="text" placeholder="Johnson" />
+                  <input type="text" placeholder="Johnson" value={formState.lastName} onChange={(event) => updateField("lastName", event.target.value)} />
                 </label>
               </div>
             ) : null}
 
             <label className="auth-field">
               <span>Email address</span>
-              <input type="email" placeholder="name@email.com" />
+              <input type="email" placeholder="name@email.com" value={formState.email} onChange={(event) => updateField("email", event.target.value)} />
             </label>
 
             {isForgotPassword ? null : (
               <label className="auth-field">
                 <span>Password</span>
-                <input type="password" placeholder="Enter your password" />
+                <input type="password" placeholder="Enter your password" value={formState.password} onChange={(event) => updateField("password", event.target.value)} />
               </label>
             )}
 
             {isRegister ? (
               <label className="auth-field">
                 <span>Confirm password</span>
-                <input type="password" placeholder="Re-enter your password" />
+                <input
+                  type="password"
+                  placeholder="Re-enter your password"
+                  value={formState.confirmPassword}
+                  onChange={(event) => updateField("confirmPassword", event.target.value)}
+                />
               </label>
             ) : null}
 
@@ -120,25 +193,38 @@ export function AuthPage({ route }) {
             ) : (
               <div className="auth-form__meta">
                 <label className="auth-checkbox">
-                  <input type="checkbox" />
+                  <input
+                    type="checkbox"
+                    checked={formState.keepSignedIn}
+                    onChange={(event) => updateField("keepSignedIn", event.target.checked)}
+                  />
                   <span>Keep me signed in</span>
                 </label>
 
-                <a href="#/forgot-password" className="auth-inline-link">
-                  Forgot password?
-                </a>
+                {!isRegister ? (
+                  <a href="#/forgot-password" className="auth-inline-link">
+                    Forgot password?
+                  </a>
+                ) : null}
               </div>
             )}
 
             {isRegister ? (
               <label className="auth-checkbox">
-                <input type="checkbox" />
+                <input
+                  type="checkbox"
+                  checked={formState.agreeTerms}
+                  onChange={(event) => updateField("agreeTerms", event.target.checked)}
+                />
                 <span>I agree to the privacy policy and terms.</span>
               </label>
             ) : null}
 
+            {errorMessage ? <p className="auth-feedback auth-feedback--error">{errorMessage}</p> : null}
+            {successMessage ? <p className="auth-feedback auth-feedback--success">{successMessage}</p> : null}
+
             <button type="submit" className="auth-submit">
-              {content.submitLabel}
+              {isSubmitting ? "Please wait..." : content.submitLabel}
               <span>&raquo;</span>
             </button>
 
