@@ -1,17 +1,21 @@
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export function FeaturedProducts({ items }) {
   const { addItem } = useCart();
+  const { formatPrice } = useCurrency();
+  const { t } = useLanguage();
 
   return (
     <section className="section container">
       <div className="section-heading split">
         <div>
-          <p className="eyebrow">Featured products</p>
-          <h2>Highlighted styles from the latest edit.</h2>
+          <p className="eyebrow">{t("featured.eyebrow")}</p>
+          <h2>{t("featured.title")}</h2>
         </div>
         <a href="/" onClick={(event) => event.preventDefault()} className="text-link">
-          View all products
+          {t("featured.viewAll")}
         </a>
       </div>
 
@@ -28,8 +32,8 @@ export function FeaturedProducts({ items }) {
             </div>
             <div className="product-copy product-copy--catalog product-copy--bottom">
               <div className="product-price-row">
-                <strong>{item.price}</strong>
-                {item.oldPrice ? <span>{item.oldPrice}</span> : null}
+                <strong>{formatPrice(item.price)}</strong>
+                {item.oldPrice ? <span>{formatPrice(item.oldPrice)}</span> : null}
               </div>
               <p className="product-option">
                 {item.optionLabel}:{item.optionValue}
@@ -55,7 +59,7 @@ export function FeaturedProducts({ items }) {
                   });
                 }}
               >
-                {item.buttonLabel} &raquo;
+                {t("common.addToCart")} &raquo;
               </button>
             </div>
           </article>

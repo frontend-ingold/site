@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useCurrency } from "../context/CurrencyContext";
+import { useOrders } from "../context/OrdersContext";
 import { LoadingScreen } from "./LoadingScreen";
 
 function formatDate(value) {
@@ -15,11 +17,18 @@ function formatDate(value) {
 
 export function OrderSuccessPage({ apiBaseUrl, hashPath }) {
   const orderNumber = hashPath.replace(/^order-success\//, "");
+  const { getOrder, upsertOrder } = useOrders();
+  const { formatStoredAmount } = useCurrency();
   const [order, setOrder] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
     let isMounted = true;
+    const storedOrder = getOrder(orderNumber);
+
+    if (storedOrder) {
+      setOrder(storedOrder);
+    }
 
     async function loadOrder() {
       try {
@@ -32,6 +41,7 @@ export function OrderSuccessPage({ apiBaseUrl, hashPath }) {
 
         if (isMounted) {
           setOrder(data.order);
+          upsertOrder(data.order);
         }
       } catch (error) {
         if (isMounted) {
@@ -47,7 +57,7 @@ export function OrderSuccessPage({ apiBaseUrl, hashPath }) {
     return () => {
       isMounted = false;
     };
-  }, [apiBaseUrl, orderNumber]);
+  }, [apiBaseUrl, getOrder, orderNumber, upsertOrder]);
 
   if (!order && !errorMessage) {
     return <LoadingScreen label="Loading order confirmation" />;
@@ -59,7 +69,12 @@ export function OrderSuccessPage({ apiBaseUrl, hashPath }) {
         <div className="container order-success-page__error">
           <h1>Order not found</h1>
           <p>{errorMessage}</p>
-          <button type="button" onClick={() => { window.location.hash = "/track-order"; }}>
+          <button
+            type="button"
+            onClick={() => {
+              window.location.hash = "/track-order";
+            }}
+          >
             Track order
           </button>
         </div>
@@ -81,7 +96,7 @@ export function OrderSuccessPage({ apiBaseUrl, hashPath }) {
           <div className="order-success-page__stats">
             <div>
               <span>Total</span>
-              <strong>${order.total}</strong>
+              <strong>{formatStoredAmount(order.total, order.currencyCode)}</strong>
             </div>
             <div>
               <span>Status</span>
@@ -138,7 +153,7 @@ export function OrderSuccessPage({ apiBaseUrl, hashPath }) {
                   </p>
                 </div>
                 <strong>
-                  {item.quantity} × ${item.price}
+                  {item.quantity} × {formatStoredAmount(item.price, order.currencyCode)}
                 </strong>
               </article>
             ))}

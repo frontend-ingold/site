@@ -4,6 +4,8 @@ import { LoadingScreen } from "./LoadingScreen";
 import { NewArrivalShowcase } from "./NewArrivalShowcase";
 import { Newsletter } from "./Newsletter";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { useWishlist } from "../context/WishlistContext";
 
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL ||
@@ -55,6 +57,8 @@ function formatReviewDate(value) {
 
 export function CollectionProductDetailPage({ data, homepageContent, isLoading = false }) {
   const { addItem } = useCart();
+  const { formatPrice } = useCurrency();
+  const { hasItem, toggleItem } = useWishlist();
   const [quantity, setQuantity] = useState(1);
   const [activeAttributeIndex, setActiveAttributeIndex] = useState(0);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -129,6 +133,8 @@ export function CollectionProductDetailPage({ data, homepageContent, isLoading =
       : product?.image
         ? [product.image]
         : [];
+  const wishlistKey = product && collection ? `${collection.slug}::${product.id}` : "";
+  const isWishlisted = wishlistKey ? hasItem(wishlistKey) : false;
 
   useEffect(() => {
     setQuantity(1);
@@ -335,8 +341,8 @@ export function CollectionProductDetailPage({ data, homepageContent, isLoading =
             </div>
 
             <div className="product-detail-page__price">
-              <strong>{product.price}</strong>
-              {product.oldPrice ? <span>{product.oldPrice}</span> : null}
+              <strong>{formatPrice(product.price)}</strong>
+              {product.oldPrice ? <span>{formatPrice(product.oldPrice)}</span> : null}
             </div>
 
             <div className="product-detail-page__actions">
@@ -450,9 +456,29 @@ export function CollectionProductDetailPage({ data, homepageContent, isLoading =
 
           <aside className="product-detail-page__meta">
             <div className="product-detail-page__meta-top">
-              <button type="button" className="product-detail-page__link">
+              <button
+                type="button"
+                className={`product-detail-page__link ${isWishlisted ? "is-active" : ""}`}
+                onClick={() => {
+                  toggleItem({
+                    key: wishlistKey,
+                    id: product.id,
+                    productId: product.id,
+                    collectionSlug: collection.slug,
+                    href: `#/collections/${collection.slug}/products/${product.id}`,
+                    name: product.name,
+                    brand: product.brand,
+                    category: product.category,
+                    price: product.price,
+                    oldPrice: product.oldPrice,
+                    image: galleryImages[activeImageIndex] || product.image,
+                    optionLabel: product.optionLabel,
+                    optionValue: activeAttribute?.value || product.optionValue
+                  });
+                }}
+              >
                 <span>&hearts;</span>
-                Add to Wishlist
+                {isWishlisted ? "Saved to Wishlist" : "Add to Wishlist"}
               </button>
               <button
                 type="button"
@@ -503,8 +529,8 @@ export function CollectionProductDetailPage({ data, homepageContent, isLoading =
                 </div>
                 <h3>{item.name}</h3>
                 <div className="product-detail-page__recent-price">
-                  <strong>{item.price}</strong>
-                  {item.oldPrice ? <span>{item.oldPrice}</span> : null}
+                  <strong>{formatPrice(item.price)}</strong>
+                  {item.oldPrice ? <span>{formatPrice(item.oldPrice)}</span> : null}
                 </div>
               </article>
             ))}

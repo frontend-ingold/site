@@ -1,40 +1,83 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { useLanguage } from "../context/LanguageContext";
 
-const navItems = [
-  { label: "ALL CATEGORY", href: "#/" },
-  { label: "Shop", href: "#/" },
-  { label: "PAGES", href: "#/" },
-  { label: "BLOGS", href: "#/" },
-  { label: "COLLECTIONS", href: "#/" }
-];
-
-const pagesLinks = [
-  "About us",
-  "Contact with Us",
-  "Faq's",
-  "Privacy Policy",
-  "Shipping & Delivery",
-  "Terms & Conditions"
-];
-
-const blogLinks = ["Blogs Page", "Article Page"];
-
-const localPanelLabels = new Set(["PAGES", "BLOGS", "COLLECTIONS"]);
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL ||
   (window.location.hostname === "localhost" ? "http://localhost:5000" : "https://clothsapi.vercel.app");
 
+const languageFlags = {
+  en: "https://flagcdn.com/w40/gb.png",
+  de: "https://flagcdn.com/w40/de.png",
+  fr: "https://flagcdn.com/w40/fr.png"
+};
+
+const currencies = [
+  { code: "USD", flag: "https://flagcdn.com/w40/us.png" },
+  { code: "EUR", flag: "https://flagcdn.com/w40/eu.png" },
+  { code: "INR", flag: "https://flagcdn.com/w40/in.png" }
+];
+
 export function Header({ alwaysSolid = false }) {
   const { itemCount, openCart } = useCart();
   const { user, isLoggedIn, logout } = useAuth();
+  const { currency, setCurrency } = useCurrency();
+  const { language, setLanguage, t, languages } = useLanguage();
+  const accountMenuRef = useRef(null);
+  const currencyMenuRef = useRef(null);
+  const languageMenuRef = useRef(null);
   const [isVisible, setIsVisible] = useState(true);
   const [isScrolled, setIsScrolled] = useState(alwaysSolid);
+  const [isMobileViewport, setIsMobileViewport] = useState(() =>
+    typeof window === "undefined" ? false : window.innerWidth <= 960
+  );
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [menuGroups, setMenuGroups] = useState([]);
   const [shopCards, setShopCards] = useState([]);
   const [openNavLabel, setOpenNavLabel] = useState(null);
   const [activeMenuGroupId, setActiveMenuGroupId] = useState(null);
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [isCurrencyMenuOpen, setIsCurrencyMenuOpen] = useState(false);
+  const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+
+  const navItems = [
+    { label: t("header.allCategory") },
+    { label: t("header.shop") },
+    { label: t("header.pages") },
+    { label: t("header.blogs") },
+    { label: t("header.collections") }
+  ];
+
+  const localPanelLabels = new Set([t("header.pages"), t("header.blogs"), t("header.collections")]);
+  const pagesLinks = [
+    "About us",
+    "Contact with Us",
+    "Faq's",
+    "Privacy Policy",
+    "Shipping & Delivery",
+    "Terms & Conditions"
+  ];
+  const blogLinks = ["Blogs Page", "Article Page"];
+  const activeLanguage = languages.find((item) => item.code === language) ?? languages[0];
+  const activeCurrency = currencies.find((item) => item.code === currency) ?? currencies[0];
+
+  useEffect(() => {
+    function handleResize() {
+      const nextIsMobile = window.innerWidth <= 960;
+      setIsMobileViewport(nextIsMobile);
+
+      if (!nextIsMobile) {
+        setIsMobileMenuOpen(false);
+      }
+    }
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     if (alwaysSolid) {
@@ -107,6 +150,25 @@ export function Header({ alwaysSolid = false }) {
     };
   }, []);
 
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!accountMenuRef.current?.contains(event.target)) {
+        setIsAccountMenuOpen(false);
+      }
+
+      if (!currencyMenuRef.current?.contains(event.target)) {
+        setIsCurrencyMenuOpen(false);
+      }
+
+      if (!languageMenuRef.current?.contains(event.target)) {
+        setIsLanguageMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    return () => document.removeEventListener("mousedown", handlePointerDown);
+  }, []);
+
   const promoImage = useMemo(() => {
     return (
       menuGroups.find((group) => group.id === activeMenuGroupId)?.promoImageUrl ||
@@ -115,65 +177,74 @@ export function Header({ alwaysSolid = false }) {
     );
   }, [activeMenuGroupId, menuGroups]);
 
-  const isSharedPanelOpen = openNavLabel !== null && !localPanelLabels.has(openNavLabel);
+  const isSharedPanelOpen =
+    !isMobileViewport && openNavLabel !== null && !localPanelLabels.has(openNavLabel);
+
   const accountLabel = isLoggedIn
     ? `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email || "My Account"
-    : "Log In";
+    : t("header.logIn");
 
-  function renderLocalPanelContent(label) {
-    if (label === "PAGES") {
-      return (
-        <div className="nav-simple-panel">
-          {pagesLinks.map((item) => (
-            <a href="#/" key={item} className="nav-simple-panel__link" onClick={(event) => event.preventDefault()}>
-              {item}
-            </a>
-          ))}
-        </div>
-      );
-    }
-
-    if (label === "BLOGS") {
-      return (
-        <div className="nav-simple-panel">
-          {blogLinks.map((item) => (
-            <a href="#/" key={item} className="nav-simple-panel__link" onClick={(event) => event.preventDefault()}>
-              {item}
-            </a>
-          ))}
-        </div>
-      );
-    }
-
-    if (label === "COLLECTIONS") {
-      return (
-        <div className="nav-simple-panel nav-simple-panel--collections">
-          {shopCards.map((item) => (
-            <a href={item.href} key={item.id} className="nav-simple-panel__link">
-              {item.title}
-            </a>
-          ))}
-        </div>
-      );
-    }
-
-    return null;
+  function closeUtilityMenus() {
+    setIsAccountMenuOpen(false);
+    setIsCurrencyMenuOpen(false);
+    setIsLanguageMenuOpen(false);
   }
 
-  function renderSharedPanelContent() {
-    if (openNavLabel === "Shop") {
-      return (
-        <div className="nav-card-panel">
-          {shopCards.map((item) => (
-            <a href={item.href} key={item.id} className="nav-card-panel__item" onClick={() => setOpenNavLabel(null)}>
-              <img src={item.image} alt={item.title} />
-              <span>{item.title}</span>
-            </a>
-          ))}
-        </div>
-      );
-    }
+  function closeMobileMenu() {
+    setIsMobileMenuOpen(false);
+    setOpenNavLabel(null);
+    closeUtilityMenus();
+  }
 
+  function renderSimpleLinks(items) {
+    return (
+      <div className="nav-simple-panel">
+        {items.map((item) => (
+          <a href="#/" key={item} className="nav-simple-panel__link" onClick={(event) => event.preventDefault()}>
+            {item}
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  function renderCollectionsLinks() {
+    return (
+      <div className="nav-simple-panel nav-simple-panel--collections">
+        {shopCards.map((item) => (
+          <a href={item.href} key={item.id} className="nav-simple-panel__link" onClick={(event) => event.preventDefault()}>
+            {item.title}
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  function renderShopCards() {
+    return (
+      <div className="nav-card-panel">
+        {shopCards.map((item) => (
+          <a
+            href={item.href}
+            key={item.id}
+            className="nav-card-panel__item"
+            onClick={(event) => {
+              event.preventDefault();
+              setOpenNavLabel(null);
+              if (isMobileViewport) {
+                closeMobileMenu();
+              }
+            }}
+          >
+            <img src={item.image} alt={item.title} />
+            <span>{item.title}</span>
+          </a>
+        ))}
+      </div>
+    );
+  }
+
+  function renderAllCategoryPanel() {
     return (
       <div className="nav-mega-menu__content">
         <div className="nav-mega-menu__columns">
@@ -181,12 +252,26 @@ export function Header({ alwaysSolid = false }) {
             <div
               className={`nav-mega-menu__group ${group.id === activeMenuGroupId ? "nav-mega-menu__group--active" : ""}`}
               key={group.id}
-              onMouseEnter={() => setActiveMenuGroupId(group.id)}
+              onMouseEnter={() => {
+                if (!isMobileViewport) {
+                  setActiveMenuGroupId(group.id);
+                }
+              }}
             >
               <h3>{group.name}</h3>
               <div className="nav-mega-menu__links">
                 {group.items.map((menuItem) => (
-                  <a href={menuItem.href} key={menuItem.id} onClick={() => setOpenNavLabel(null)}>
+                  <a
+                    href={menuItem.href}
+                    key={menuItem.id}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setOpenNavLabel(null);
+                      if (isMobileViewport) {
+                        closeMobileMenu();
+                      }
+                    }}
+                  >
                     {menuItem.name}
                   </a>
                 ))}
@@ -202,101 +287,100 @@ export function Header({ alwaysSolid = false }) {
     );
   }
 
+  function renderPanelContent(label) {
+    if (label === t("header.pages")) {
+      return renderSimpleLinks(pagesLinks);
+    }
+
+    if (label === t("header.blogs")) {
+      return renderSimpleLinks(blogLinks);
+    }
+
+    if (label === t("header.collections")) {
+      return renderCollectionsLinks();
+    }
+
+    if (label === t("header.shop")) {
+      return renderShopCards();
+    }
+
+    return renderAllCategoryPanel();
+  }
+
   return (
     <header
       className={`site-header ${isVisible ? "site-header--visible" : "site-header--hidden"} ${isScrolled ? "site-header--scrolled" : ""}`}
     >
-      <div className="header-mega-menu-shell" onMouseLeave={() => setOpenNavLabel(null)}>
+      <div
+        className="header-mega-menu-shell"
+        onMouseLeave={() => {
+          if (!isMobileViewport) {
+            setOpenNavLabel(null);
+          }
+        }}
+      >
         <div className="nav-row hero-nav-shell">
-          <a href="#/" className="brand-mark brand-mark--hero" aria-label="Go to homepage">
+          <a
+            href="#/"
+            className="brand-mark brand-mark--hero"
+            aria-label="Go to homepage"
+            onClick={() => {
+              closeMobileMenu();
+            }}
+          >
             <p>VOGUE</p>
           </a>
 
-          <nav className="main-nav" aria-label="Primary">
-            {navItems.map((item) => {
-              const isOpen = openNavLabel === item.label;
-              const hasLocalPanel = localPanelLabels.has(item.label);
+          {isMobileViewport ? (
+            <div className="header-mobile-quick">
+              <button
+                type="button"
+                className="header-icon-button"
+                aria-label={isLoggedIn ? accountLabel : t("header.logIn")}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    window.location.hash = "/login";
+                    return;
+                  }
 
-              return (
-                <div
-                  key={item.label}
-                  className={`nav-mega-menu ${isOpen ? "nav-mega-menu--open" : ""}`}
-                  onMouseEnter={() => setOpenNavLabel(item.label)}
-                  onFocus={() => setOpenNavLabel(item.label)}
-                  onBlur={(event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget)) {
-                      setOpenNavLabel(null);
-                    }
-                  }}
-                >
-                  <button type="button" className="nav-mega-menu__trigger">
-                    <span>{item.label}</span>
-                    <span className={`nav-caret nav-caret--animated ${isOpen ? "nav-caret--open" : ""}`}>▼</span>
-                  </button>
+                  setIsAccountMenuOpen((current) => !current);
+                  setIsCurrencyMenuOpen(false);
+                  setIsLanguageMenuOpen(false);
+                }}
+              >
+                <span className="header-inline-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path
+                      d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M4 21C4 17.6863 7.58172 15 12 15C16.4183 15 20 17.6863 20 21"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </span>
+              </button>
 
-                  {hasLocalPanel ? <div className={`nav-inline-panel ${isOpen ? "nav-inline-panel--open" : ""}`}>{renderLocalPanelContent(item.label)}</div> : null}
-                </div>
-              );
-            })}
-          </nav>
-
-          <div className="nav-actions">
-            <button
-              type="button"
-              className="header-inline-action"
-              onClick={async () => {
-                if (isLoggedIn) {
-                  await logout();
-                  window.location.hash = "/";
-                  return;
-                }
-
-                window.location.hash = "/login";
-              }}
-            >
-              <span className="header-inline-icon" aria-hidden="true">
+              <button type="button" className="header-icon-button" aria-label="Search">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path
-                    d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <path
-                    d="M4 21C4 17.6863 7.58172 15 12 15C16.4183 15 20 17.6863 20 21"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
+                  <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                  <path d="M16 16L20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
-              </span>
-              <span>{accountLabel}</span>
-              <span className="nav-caret">{isLoggedIn ? "↗" : "▼"}</span>
-            </button>
+              </button>
 
-            <button type="button" className="nav-pill nav-pill--flag">
-              <img src="/assets/hero/usd.svg" alt="USD flag" />
-              <span>USD</span>
-              <span className="nav-caret">▼</span>
-            </button>
-
-            <button type="button" className="nav-pill nav-pill--flag">
-              <img src="/assets/hero/en.svg" alt="English flag" />
-              <span>English</span>
-              <span className="nav-caret">▼</span>
-            </button>
-
-            <button type="button" className="header-icon-button" aria-label="Search">
-              <svg viewBox="0 0 24 24" fill="none">
-                <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                <path d="M16 16L20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
-
-            <button type="button" className="header-inline-action header-inline-action--cart" onClick={openCart}>
-              <span className="header-inline-icon" aria-hidden="true">
+              <button
+                type="button"
+                className="header-icon-button header-icon-button--cart"
+                aria-label={`${t("header.cart")} (${itemCount})`}
+                onClick={openCart}
+              >
                 <svg viewBox="0 0 24 24" fill="none">
                   <path
                     d="M3 5H5L7 15H18L20 8H8"
@@ -308,15 +392,283 @@ export function Header({ alwaysSolid = false }) {
                   <circle cx="9" cy="19" r="1.6" fill="currentColor" />
                   <circle cx="17" cy="19" r="1.6" fill="currentColor" />
                 </svg>
-              </span>
-              <span>CART({itemCount})</span>
-            </button>
+                {itemCount > 0 ? <span className="header-icon-badge">{itemCount}</span> : null}
+              </button>
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            className={`header-menu-toggle ${isMobileMenuOpen ? "header-menu-toggle--open" : ""}`}
+            aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isMobileMenuOpen ? "true" : "false"}
+            onClick={() => {
+              setIsMobileMenuOpen((current) => {
+                const next = !current;
+                if (!next) {
+                  setOpenNavLabel(null);
+                  closeUtilityMenus();
+                }
+                return next;
+              });
+            }}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+
+          <div className={`header-mobile-panel ${isMobileMenuOpen ? "header-mobile-panel--open" : ""}`}>
+            <div className="header-mobile-panel__inner">
+              <nav className="main-nav" aria-label="Primary">
+                {navItems.map((item) => {
+                  const isOpen = openNavLabel === item.label;
+                  const shouldRenderInlinePanel = isMobileViewport || localPanelLabels.has(item.label);
+
+                  return (
+                    <div
+                      key={item.label}
+                      className={`nav-mega-menu ${isOpen ? "nav-mega-menu--open" : ""}`}
+                      onMouseEnter={() => {
+                        if (!isMobileViewport) {
+                          setOpenNavLabel(item.label);
+                        }
+                      }}
+                      onFocus={() => {
+                        if (!isMobileViewport) {
+                          setOpenNavLabel(item.label);
+                        }
+                      }}
+                      onBlur={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget) && !isMobileViewport) {
+                          setOpenNavLabel(null);
+                        }
+                      }}
+                    >
+                      <button
+                        type="button"
+                        className="nav-mega-menu__trigger"
+                        onClick={() => {
+                          if (isMobileViewport) {
+                            setOpenNavLabel((current) => (current === item.label ? null : item.label));
+                            return;
+                          }
+
+                          setOpenNavLabel((current) => (current === item.label ? null : item.label));
+                        }}
+                      >
+                        <span>{item.label}</span>
+                        <span className={`nav-caret nav-caret--animated ${isOpen ? "nav-caret--open" : ""}`}>▼</span>
+                      </button>
+
+                      {shouldRenderInlinePanel && isOpen ? (
+                        <div className="nav-inline-panel nav-inline-panel--open">{renderPanelContent(item.label)}</div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </nav>
+
+              <div className="nav-actions">
+                <div className={`account-menu ${isAccountMenuOpen ? "account-menu--open" : ""}`} ref={accountMenuRef}>
+                  <button
+                    type="button"
+                    className="header-inline-action"
+                    onClick={() => {
+                      if (!isLoggedIn) {
+                        closeMobileMenu();
+                        window.location.hash = "/login";
+                        return;
+                      }
+
+                      setIsAccountMenuOpen((current) => !current);
+                    }}
+                  >
+                    <span className="header-inline-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <path
+                          d="M12 12C14.7614 12 17 9.76142 17 7C17 4.23858 14.7614 2 12 2C9.23858 2 7 4.23858 7 7C7 9.76142 9.23858 12 12 12Z"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M4 21C4 17.6863 7.58172 15 12 15C16.4183 15 20 17.6863 20 21"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </span>
+                    <span>{accountLabel}</span>
+                    <span className={`nav-caret nav-caret--animated ${isAccountMenuOpen ? "nav-caret--open" : ""}`}>▼</span>
+                  </button>
+
+                  {isLoggedIn ? (
+                    <div className={`account-menu__panel ${isAccountMenuOpen ? "account-menu__panel--open" : ""}`}>
+                      <button
+                        type="button"
+                        className="account-menu__item"
+                        onClick={() => {
+                          closeMobileMenu();
+                          window.location.hash = "/wishlist";
+                        }}
+                      >
+                        {t("header.myWishList")}
+                      </button>
+                      <button
+                        type="button"
+                        className="account-menu__item"
+                        onClick={() => {
+                          closeMobileMenu();
+                          window.location.hash = "/my-orders";
+                        }}
+                      >
+                        {t("header.myOrders")}
+                      </button>
+                      <button
+                        type="button"
+                        className="account-menu__item"
+                        onClick={() => {
+                          closeMobileMenu();
+                          window.location.hash = "/my-address";
+                        }}
+                      >
+                        {t("header.myAddress")}
+                      </button>
+                      <button
+                        type="button"
+                        className="account-menu__item account-menu__item--danger"
+                        onClick={async () => {
+                          closeMobileMenu();
+                          await logout();
+                          window.location.hash = "/";
+                        }}
+                      >
+                        {t("header.logOut")}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className={`header-picker ${isCurrencyMenuOpen ? "header-picker--open" : ""}`} ref={currencyMenuRef}>
+                  <button
+                    type="button"
+                    className="nav-pill nav-pill--flag nav-pill--currency"
+                    onClick={() => {
+                      setIsCurrencyMenuOpen((current) => !current);
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={isCurrencyMenuOpen ? "true" : "false"}
+                  >
+                    <img className="header-picker__flag-image" src={activeCurrency.flag} alt={activeCurrency.code} />
+                    <span>{activeCurrency.code}</span>
+                    <span className={`nav-caret nav-caret--animated ${isCurrencyMenuOpen ? "nav-caret--open" : ""}`}>▼</span>
+                  </button>
+
+                  <div className={`header-picker__panel ${isCurrencyMenuOpen ? "header-picker__panel--open" : ""}`} role="menu">
+                    {currencies.map((item) => (
+                      <button
+                        type="button"
+                        key={item.code}
+                        className={`header-picker__item ${item.code === currency ? "is-active" : ""}`}
+                        onClick={() => {
+                          setCurrency(item.code);
+                          setIsCurrencyMenuOpen(false);
+                        }}
+                        role="menuitem"
+                      >
+                        <img className="header-picker__flag-image" src={item.flag} alt={item.code} />
+                        <span>{item.code}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className={`header-picker ${isLanguageMenuOpen ? "header-picker--open" : ""}`} ref={languageMenuRef}>
+                  <button
+                    type="button"
+                    className="nav-pill nav-pill--flag nav-pill--language"
+                    onClick={() => {
+                      setIsLanguageMenuOpen((current) => !current);
+                    }}
+                    aria-haspopup="menu"
+                    aria-expanded={isLanguageMenuOpen ? "true" : "false"}
+                  >
+                    <img
+                      className="header-picker__flag-image"
+                      src={languageFlags[activeLanguage.code] ?? languageFlags.en}
+                      alt={activeLanguage.label}
+                    />
+                    <span>{activeLanguage.label}</span>
+                    <span className={`nav-caret nav-caret--animated ${isLanguageMenuOpen ? "nav-caret--open" : ""}`}>▼</span>
+                  </button>
+
+                  <div className={`header-picker__panel ${isLanguageMenuOpen ? "header-picker__panel--open" : ""}`} role="menu">
+                    {languages.map((item) => (
+                      <button
+                        type="button"
+                        key={item.code}
+                        className={`header-picker__item ${item.code === language ? "is-active" : ""}`}
+                        onClick={() => {
+                          setLanguage(item.code);
+                          setIsLanguageMenuOpen(false);
+                        }}
+                        role="menuitem"
+                      >
+                        <img
+                          className="header-picker__flag-image"
+                          src={languageFlags[item.code] ?? languageFlags.en}
+                          alt={item.label}
+                        />
+                        <span>{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <button type="button" className="header-icon-button" aria-label="Search">
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M16 16L20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </button>
+
+                <button
+                  type="button"
+                  className="header-inline-action header-inline-action--cart"
+                  onClick={() => {
+                    closeMobileMenu();
+                    openCart();
+                  }}
+                >
+                  <span className="header-inline-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none">
+                      <path
+                        d="M3 5H5L7 15H18L20 8H8"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <circle cx="9" cy="19" r="1.6" fill="currentColor" />
+                      <circle cx="17" cy="19" r="1.6" fill="currentColor" />
+                    </svg>
+                  </span>
+                  <span>
+                    {t("header.cart")}({itemCount})
+                  </span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         {isSharedPanelOpen ? (
           <div className="header-shared-panel header-shared-panel--open">
-            <div className="nav-mega-menu__panel">{renderSharedPanelContent()}</div>
+            <div className="nav-mega-menu__panel">{renderPanelContent(openNavLabel)}</div>
           </div>
         ) : null}
       </div>

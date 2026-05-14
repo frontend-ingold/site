@@ -22,19 +22,19 @@ const footerColumns = {
 const socialItems = ["▶", "◉", "◎", "X"];
 
 export function Footer() {
+  const { t } = useLanguage();
+
   return (
     <footer className="site-footer">
       <div className="container footer-layout">
         <div className="footer-brand-block">
           <p>
-            The Modern Dress is a great piece for the spring and summer. The beautiful open back
-            with structured shoulders will great on all ages and body types, while the slouchy fit
-            can be dressed up or down depending on your mood.
+            {t("footer.description")}
           </p>
 
           <div className="footer-socials">
             {socialItems.map((item) => (
-              <a href="/" key={item} onClick={(event) => event.preventDefault()} aria-label={`Social ${item}`}>
+              <a href="/" key={item} onClick={(event) => event.preventDefault()} aria-label={t("footer.social", { item })}>
                 {item}
               </a>
             ))}
@@ -42,7 +42,7 @@ export function Footer() {
         </div>
 
         <div className="footer-menu-column">
-          <h3>Shop:</h3>
+          <h3>{t("footer.shop")}</h3>
           {footerColumns.shop.map((item) => (
             <a href="/" key={item} onClick={(event) => event.preventDefault()}>
               {item}
@@ -51,7 +51,7 @@ export function Footer() {
         </div>
 
         <div className="footer-menu-column">
-          <h3>Extras:</h3>
+          <h3>{t("footer.extras")}</h3>
           {footerColumns.extras.map((item) => (
             <a href="/" key={item} onClick={(event) => event.preventDefault()}>
               {item}
@@ -60,7 +60,7 @@ export function Footer() {
         </div>
 
         <div className="footer-menu-column">
-          <h3>Categories:</h3>
+          <h3>{t("footer.categories")}</h3>
           {footerColumns.categories.map((item) => (
             <a href="/" key={item} onClick={(event) => event.preventDefault()}>
               {item}
@@ -69,7 +69,7 @@ export function Footer() {
         </div>
 
         <div className="footer-menu-column">
-          <h3>Quick Links:</h3>
+          <h3>{t("footer.quickLinks")}</h3>
           {footerColumns.quickLinks.map((item) => (
             <a href="/" key={item} onClick={(event) => event.preventDefault()}>
               {item}
@@ -80,3 +80,4 @@ export function Footer() {
     </footer>
   );
 }
+import { useLanguage } from "../context/LanguageContext";

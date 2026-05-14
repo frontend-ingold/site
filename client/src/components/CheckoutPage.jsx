@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { getStatesForCountry, supportedCountries } from "../data/regions";
 import { useCart } from "../context/CartContext";
+import { useAddressBook } from "../context/AddressContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { useOrders } from "../context/OrdersContext";
 
 const initialFormState = {
   contact: "",
@@ -39,15 +43,40 @@ export function CheckoutPage({ apiBaseUrl }) {
     changeQuantity,
     clearCart
   } = useCart();
+  const { addresses, defaultAddress, saveAddress } = useAddressBook();
+  const { upsertOrder } = useOrders();
+  const { currency, convertAmount, formatAmount } = useCurrency();
   const [formState, setFormState] = useState(initialFormState);
+  const [selectedAddressId, setSelectedAddressId] = useState("");
   const [couponInput, setCouponInput] = useState(appliedCoupon?.code ?? "");
   const [couponMessage, setCouponMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const stateOptions = useMemo(() => getStatesForCountry(formState.country), [formState.country]);
 
   useEffect(() => {
     setCouponInput(appliedCoupon?.code ?? "");
   }, [appliedCoupon]);
+
+  useEffect(() => {
+    if (!defaultAddress) {
+      return;
+    }
+
+    setSelectedAddressId(defaultAddress.id);
+    setFormState((current) => ({
+      ...current,
+      contact: current.contact || defaultAddress.contact,
+      country: defaultAddress.country || current.country,
+      firstName: current.firstName || defaultAddress.firstName,
+      lastName: current.lastName || defaultAddress.lastName,
+      address: current.address || defaultAddress.address,
+      apartment: current.apartment || defaultAddress.apartment,
+      city: current.city || defaultAddress.city,
+      state: current.state || defaultAddress.state,
+      zipCode: current.zipCode || defaultAddress.zipCode
+    }));
+  }, [defaultAddress]);
 
   const shippingCost = useMemo(() => {
     if (!items.length) {
@@ -63,6 +92,15 @@ export function CheckoutPage({ apiBaseUrl }) {
     setFormState((current) => ({
       ...current,
       [field]: value
+    }));
+  }
+
+  function updateCountry(country) {
+    const nextStates = getStatesForCountry(country);
+    setFormState((current) => ({
+      ...current,
+      country,
+      state: nextStates.includes(current.state) ? current.state : nextStates[0] ?? ""
     }));
   }
 
@@ -116,11 +154,15 @@ export function CheckoutPage({ apiBaseUrl }) {
           note: formState.orderNote,
           paymentMethod: formState.paymentMethod,
           cardNumber: formState.cardNumber,
-          subtotal,
-          discount,
-          shipping: shippingCost,
-          total: grandTotal,
-          items
+          currencyCode: currency,
+          subtotal: convertAmount(subtotal).toFixed(2),
+          discount: convertAmount(discount).toFixed(2),
+          shipping: convertAmount(shippingCost).toFixed(2),
+          total: convertAmount(grandTotal).toFixed(2),
+          items: items.map((item) => ({
+            ...item,
+            price: convertAmount(parsePrice(item.price)).toFixed(2)
+          }))
         })
       });
 
@@ -130,6 +172,24 @@ export function CheckoutPage({ apiBaseUrl }) {
         throw new Error(data.message || "Failed to create order.");
       }
 
+      if (formState.saveInfo) {
+        saveAddress({
+          id: selectedAddressId || undefined,
+          label: defaultAddress?.label || "Home",
+          firstName: formState.firstName,
+          lastName: formState.lastName,
+          contact: formState.contact,
+          country: formState.country,
+          address: formState.address,
+          apartment: formState.apartment,
+          city: formState.city,
+          state: formState.state,
+          zipCode: formState.zipCode,
+          isDefault: true
+        });
+      }
+
+      upsertOrder(data.order);
       clearCart();
       window.location.hash = `/order-success/${data.order.orderNumber}`;
     } catch (error) {
@@ -178,12 +238,60 @@ export function CheckoutPage({ apiBaseUrl }) {
             <div className="checkout-form__section">
               <div className="checkout-form__section-head">
                 <h2>Delivery</h2>
+                {addresses.length ? (
+                  <button
+                    type="button"
+                    className="checkout-form__address-link"
+                    onClick={() => {
+                      window.location.hash = "/my-address";
+                    }}
+                  >
+                    Manage addresses
+                  </button>
+                ) : null}
               </div>
 
-              <select value={formState.country} onChange={(event) => updateField("country", event.target.value)}>
-                <option>United States</option>
-                <option>India</option>
-                <option>United Kingdom</option>
+              {addresses.length ? (
+                <div className="checkout-form__saved-addresses">
+                  <label>
+                    <span>Use saved address</span>
+                    <select
+                      value={selectedAddressId}
+                      onChange={(event) => {
+                        const nextAddress = addresses.find((item) => item.id === event.target.value);
+                        setSelectedAddressId(event.target.value);
+                        if (!nextAddress) {
+                          return;
+                        }
+
+                        setFormState((current) => ({
+                          ...current,
+                          contact: nextAddress.contact,
+                          country: nextAddress.country,
+                          firstName: nextAddress.firstName,
+                          lastName: nextAddress.lastName,
+                          address: nextAddress.address,
+                          apartment: nextAddress.apartment,
+                          city: nextAddress.city,
+                          state: nextAddress.state,
+                          zipCode: nextAddress.zipCode
+                        }));
+                      }}
+                    >
+                      {addresses.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label} - {item.address}, {item.city}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : null}
+
+              <select value={formState.country} onChange={(event) => updateCountry(event.target.value)}>
+                {supportedCountries.map((country) => (
+                  <option key={country}>{country}</option>
+                ))}
               </select>
 
               <div className="checkout-form__row checkout-form__row--split">
@@ -222,12 +330,14 @@ export function CheckoutPage({ apiBaseUrl }) {
                   value={formState.city}
                   onChange={(event) => updateField("city", event.target.value)}
                 />
-                <input
-                  type="text"
-                  placeholder="State"
-                  value={formState.state}
-                  onChange={(event) => updateField("state", event.target.value)}
-                />
+                <select value={formState.state} onChange={(event) => updateField("state", event.target.value)}>
+                  <option value="">Select state</option>
+                  {stateOptions.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="text"
                   placeholder="ZIP code"
@@ -255,7 +365,7 @@ export function CheckoutPage({ apiBaseUrl }) {
                 {items.length ? (
                   <>
                     <strong>{shippingCost === 0 ? "Free shipping" : "Standard shipping"}</strong>
-                    <span>{shippingCost === 0 ? "FREE" : `$${shippingCost.toFixed(2)}`}</span>
+                    <span>{shippingCost === 0 ? "FREE" : formatAmount(shippingCost)}</span>
                   </>
                 ) : (
                   <span>Enter your shipping address to view available shipping methods.</span>
@@ -360,7 +470,7 @@ export function CheckoutPage({ apiBaseUrl }) {
                       <button type="button" onClick={() => changeQuantity(item.key, 1)}>+</button>
                     </div>
                   </div>
-                  <strong>${(parsePrice(item.price) * item.quantity).toFixed(2)}</strong>
+                  <strong>{formatAmount(parsePrice(item.price) * item.quantity)}</strong>
                 </article>
               ))}
             </div>
@@ -408,11 +518,11 @@ export function CheckoutPage({ apiBaseUrl }) {
             <div className="checkout-summary__totals">
               <div>
                 <span>Subtotal · {itemCount} items</span>
-                <strong>${subtotal.toFixed(2)}</strong>
+                <strong>{formatAmount(subtotal)}</strong>
               </div>
               <div>
                 <span>Discount</span>
-                <strong>{discount > 0 ? `-$${discount.toFixed(2)}` : "$0.00"}</strong>
+                <strong>{discount > 0 ? `-${formatAmount(discount)}` : formatAmount(0)}</strong>
               </div>
               <div>
                 <span>Shipping</span>
@@ -420,7 +530,7 @@ export function CheckoutPage({ apiBaseUrl }) {
               </div>
               <div className="checkout-summary__total">
                 <span>Total</span>
-                <strong>USD ${grandTotal.toFixed(2)}</strong>
+                <strong>{formatAmount(grandTotal)}</strong>
               </div>
             </div>
 

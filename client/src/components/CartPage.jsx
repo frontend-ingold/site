@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
 
 export function CartPage() {
   const {
@@ -16,6 +17,7 @@ export function CartPage() {
     applyCoupon,
     removeCoupon
   } = useCart();
+  const { formatAmount, formatPrice } = useCurrency();
   const [couponInput, setCouponInput] = useState(appliedCoupon?.code ?? "");
   const [couponMessage, setCouponMessage] = useState("");
 
@@ -48,7 +50,7 @@ export function CartPage() {
               <div className="cart-page__shipping-copy">
                 <strong>
                   {amountToFreeShipping > 0
-                    ? `You're $${amountToFreeShipping.toFixed(2)} away from FREE shipping.`
+                    ? `You're ${formatAmount(amountToFreeShipping)} away from FREE shipping.`
                     : "You unlocked FREE shipping."}
                 </strong>
                 <div className="cart-page__shipping-bar">
@@ -78,7 +80,7 @@ export function CartPage() {
                         <strong>{item.quantity}</strong>
                         <button type="button" onClick={() => changeQuantity(item.key, 1)}>+</button>
                       </div>
-                      <strong>{item.price}</strong>
+                      <strong>{formatPrice(item.price)}</strong>
                     </div>
                   </div>
                   <button type="button" className="cart-page__remove" onClick={() => removeItem(item.key)}>
@@ -137,15 +139,15 @@ export function CartPage() {
               </div>
               <div>
                 <span>Subtotal</span>
-                <strong>${subtotal.toFixed(2)}</strong>
+                <strong>{formatAmount(subtotal)}</strong>
               </div>
               <div>
                 <span>Discount</span>
-                <strong>{discount > 0 ? `-$${discount.toFixed(2)}` : "$0.00"}</strong>
+                <strong>{discount > 0 ? `-${formatAmount(discount)}` : formatAmount(0)}</strong>
               </div>
               <div className="cart-page__total-row">
                 <span>Total</span>
-                <strong>${total.toFixed(2)}</strong>
+                <strong>{formatAmount(total)}</strong>
               </div>
             </div>
 

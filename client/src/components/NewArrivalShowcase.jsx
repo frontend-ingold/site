@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
 
 export function NewArrivalShowcase({ content }) {
   const viewportRef = useRef(null);
   const { addItem } = useCart();
+  const { formatPrice } = useCurrency();
   const normalizedTabs = useMemo(() => {
     return (content.tabs ?? []).map((item) =>
       typeof item === "string"
@@ -102,8 +104,8 @@ export function NewArrivalShowcase({ content }) {
                     </div>
 
                     <div className="arrival-product-card__price">
-                      <strong>{item.price}</strong>
-                      {item.oldPrice ? <span>{item.oldPrice}</span> : null}
+                      <strong>{formatPrice(item.price)}</strong>
+                      {item.oldPrice ? <span>{formatPrice(item.oldPrice)}</span> : null}
                     </div>
 
                     <button type="button" className="arrival-product-card__option">

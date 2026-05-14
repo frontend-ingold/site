@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
 
 export function CartDrawer() {
   const {
@@ -18,6 +19,7 @@ export function CartDrawer() {
     applyCoupon,
     removeCoupon
   } = useCart();
+  const { formatAmount, formatPrice } = useCurrency();
   const [couponInput, setCouponInput] = useState(appliedCoupon?.code ?? "");
   const [couponMessage, setCouponMessage] = useState("");
 
@@ -53,7 +55,7 @@ export function CartDrawer() {
           <div className="cart-drawer__shipping">
             <p>
               {amountToFreeShipping > 0
-                ? `You're $${amountToFreeShipping.toFixed(2)} away from FREE shipping.`
+                ? `You're ${formatAmount(amountToFreeShipping)} away from FREE shipping.`
                 : "You unlocked FREE shipping."}
             </p>
             <div className="cart-drawer__shipping-bar">
@@ -76,7 +78,7 @@ export function CartDrawer() {
                   <h3>{item.name}</h3>
                   <p>{item.category}</p>
                   <span>{item.optionLabel} {item.optionValue}</span>
-                  <strong>{item.price}</strong>
+                  <strong>{formatPrice(item.price)}</strong>
                   <div className="cart-drawer__item-actions">
                     <div className="cart-drawer__qty">
                       <button type="button" onClick={() => changeQuantity(item.key, -1)}>-</button>
@@ -141,15 +143,15 @@ export function CartDrawer() {
             </div>
             <div className="cart-drawer__subtotal">
               <span>Subtotal</span>
-              <strong>${subtotal.toFixed(2)}</strong>
+              <strong>{formatAmount(subtotal)}</strong>
             </div>
             <div className="cart-drawer__subtotal">
               <span>Discount</span>
-              <strong>{discount > 0 ? `-$${discount.toFixed(2)}` : "$0.00"}</strong>
+              <strong>{discount > 0 ? `-${formatAmount(discount)}` : formatAmount(0)}</strong>
             </div>
             <div className="cart-drawer__subtotal cart-drawer__subtotal--total">
               <span>Total</span>
-              <strong>${total.toFixed(2)}</strong>
+              <strong>{formatAmount(total)}</strong>
             </div>
           </div>
           <div className="cart-drawer__footer-actions">

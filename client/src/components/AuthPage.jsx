@@ -1,47 +1,40 @@
 import { useState } from "react";
 import { useAuth } from "../context/AuthContext";
-
-const authContent = {
-  login: {
-    eyebrow: "Welcome back",
-    title: "Sign in to your fashion account",
-    description:
-      "Access saved edits, checkout faster, and keep track of your latest orders in one polished space.",
-    submitLabel: "Log In",
-    secondaryPrompt: "New here?",
-    secondaryLabel: "Create account",
-    secondaryHref: "#/register"
-  },
-  register: {
-    eyebrow: "Create account",
-    title: "Join the Vogue edit",
-    description:
-      "Build your profile to save favorites, unlock early offers, and move through checkout with less friction.",
-    submitLabel: "Create Account",
-    secondaryPrompt: "Already have an account?",
-    secondaryLabel: "Log in",
-    secondaryHref: "#/login"
-  },
-  "forgot-password": {
-    eyebrow: "Password reset",
-    title: "Recover your account",
-    description:
-      "Enter the email linked to your account and we will send a secure reset link so you can get back in quickly.",
-    submitLabel: "Send Reset Link",
-    secondaryPrompt: "Remembered it?",
-    secondaryLabel: "Back to login",
-    secondaryHref: "#/login"
-  }
-};
-
-const highlights = [
-  "Curated style picks saved to your account",
-  "Fast checkout for your next order",
-  "Launch offers and seasonal member drops"
-];
+import { useLanguage } from "../context/LanguageContext";
 
 export function AuthPage({ route }) {
   const { register, login, forgotPassword } = useAuth();
+  const { t } = useLanguage();
+  const authContent = {
+    login: {
+      eyebrow: t("auth.welcomeBack"),
+      title: t("auth.loginTitle"),
+      description: t("auth.loginDescription"),
+      submitLabel: t("auth.loginSubmit"),
+      secondaryPrompt: t("auth.newHere"),
+      secondaryLabel: t("auth.createAccount"),
+      secondaryHref: "#/register"
+    },
+    register: {
+      eyebrow: t("auth.createAccountEyebrow"),
+      title: t("auth.createAccountTitle"),
+      description: t("auth.createAccountDescription"),
+      submitLabel: t("auth.createAccountSubmit"),
+      secondaryPrompt: t("auth.alreadyHaveAccount"),
+      secondaryLabel: t("auth.loginSubmit"),
+      secondaryHref: "#/login"
+    },
+    "forgot-password": {
+      eyebrow: t("auth.passwordReset"),
+      title: t("auth.recoverAccount"),
+      description: t("auth.recoverDescription"),
+      submitLabel: t("auth.sendReset"),
+      secondaryPrompt: t("auth.rememberedIt"),
+      secondaryLabel: t("auth.backToLogin"),
+      secondaryHref: "#/login"
+    }
+  };
+  const highlights = [t("auth.highlight1"), t("auth.highlight2"), t("auth.highlight3")];
   const content = authContent[route] ?? authContent.login;
   const isRegister = route === "register";
   const isForgotPassword = route === "forgot-password";
@@ -119,11 +112,10 @@ export function AuthPage({ route }) {
           </a>
 
           <div className="auth-panel__copy">
-            <p className="auth-panel__eyebrow">Private Fashion Access</p>
-            <h2>Style, saved beautifully.</h2>
+            <p className="auth-panel__eyebrow">{t("auth.privateAccess")}</p>
+            <h2>{t("auth.styleSaved")}</h2>
             <p>
-              A refined account space for shopping, wishlists, order tracking, and exclusive fashion
-              updates.
+              {t("auth.authIntro")}
             </p>
           </div>
 
@@ -151,35 +143,35 @@ export function AuthPage({ route }) {
             {isRegister ? (
               <div className="auth-form__split">
                 <label className="auth-field">
-                  <span>First name</span>
-                  <input type="text" placeholder="Ava" value={formState.firstName} onChange={(event) => updateField("firstName", event.target.value)} />
+                  <span>{t("auth.firstName")}</span>
+                  <input type="text" placeholder={t("auth.placeholderFirstName")} value={formState.firstName} onChange={(event) => updateField("firstName", event.target.value)} />
                 </label>
 
                 <label className="auth-field">
-                  <span>Last name</span>
-                  <input type="text" placeholder="Johnson" value={formState.lastName} onChange={(event) => updateField("lastName", event.target.value)} />
+                  <span>{t("auth.lastName")}</span>
+                  <input type="text" placeholder={t("auth.placeholderLastName")} value={formState.lastName} onChange={(event) => updateField("lastName", event.target.value)} />
                 </label>
               </div>
             ) : null}
 
             <label className="auth-field">
-              <span>Email address</span>
-              <input type="email" placeholder="name@email.com" value={formState.email} onChange={(event) => updateField("email", event.target.value)} />
+              <span>{t("auth.emailAddress")}</span>
+              <input type="email" placeholder={t("auth.placeholderEmail")} value={formState.email} onChange={(event) => updateField("email", event.target.value)} />
             </label>
 
             {isForgotPassword ? null : (
               <label className="auth-field">
-                <span>Password</span>
-                <input type="password" placeholder="Enter your password" value={formState.password} onChange={(event) => updateField("password", event.target.value)} />
+                <span>{t("auth.password")}</span>
+                <input type="password" placeholder={t("auth.placeholderPassword")} value={formState.password} onChange={(event) => updateField("password", event.target.value)} />
               </label>
             )}
 
             {isRegister ? (
               <label className="auth-field">
-                <span>Confirm password</span>
+                <span>{t("auth.confirmPassword")}</span>
                 <input
                   type="password"
-                  placeholder="Re-enter your password"
+                  placeholder={t("auth.placeholderConfirmPassword")}
                   value={formState.confirmPassword}
                   onChange={(event) => updateField("confirmPassword", event.target.value)}
                 />
@@ -188,7 +180,7 @@ export function AuthPage({ route }) {
 
             {isForgotPassword ? (
               <p className="auth-helper">
-                We will send a reset link to your inbox. Use a valid email address tied to your account.
+                {t("auth.forgotHelper")}
               </p>
             ) : (
               <div className="auth-form__meta">
@@ -198,12 +190,12 @@ export function AuthPage({ route }) {
                     checked={formState.keepSignedIn}
                     onChange={(event) => updateField("keepSignedIn", event.target.checked)}
                   />
-                  <span>Keep me signed in</span>
+                  <span>{t("auth.keepSignedIn")}</span>
                 </label>
 
                 {!isRegister ? (
                   <a href="#/forgot-password" className="auth-inline-link">
-                    Forgot password?
+                    {t("auth.forgotPassword")}
                   </a>
                 ) : null}
               </div>
@@ -216,7 +208,7 @@ export function AuthPage({ route }) {
                   checked={formState.agreeTerms}
                   onChange={(event) => updateField("agreeTerms", event.target.checked)}
                 />
-                <span>I agree to the privacy policy and terms.</span>
+                <span>{t("auth.agreeTerms")}</span>
               </label>
             ) : null}
 
@@ -224,17 +216,17 @@ export function AuthPage({ route }) {
             {successMessage ? <p className="auth-feedback auth-feedback--success">{successMessage}</p> : null}
 
             <button type="submit" className="auth-submit">
-              {isSubmitting ? "Please wait..." : content.submitLabel}
+              {isSubmitting ? t("auth.pleaseWait") : content.submitLabel}
               <span>&raquo;</span>
             </button>
 
             <div className="auth-divider">
-              <span>or continue with</span>
+              <span>{t("auth.continueWith")}</span>
             </div>
 
             <div className="auth-socials">
-              <button type="button">Google</button>
-              <button type="button">Apple</button>
+              <button type="button">{t("auth.google")}</button>
+              <button type="button">{t("auth.apple")}</button>
             </div>
           </form>
 

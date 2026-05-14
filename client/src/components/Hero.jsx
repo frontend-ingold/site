@@ -1,35 +1,7 @@
 import { useEffect, useState } from "react";
 import { useCart } from "../context/CartContext";
-
-const heroSlides = [
-  {
-    id: 1,
-    count: "01",
-    title: "Modern and trending fashion for everyone",
-    description:
-      "Fashion allows individuals to showcase their personality, creativity, and cultural identity, while also serving practical purposes such as protection and comfort.",
-    topHotspot: "Down Cotton Tshirt for Women",
-    bottomHotspot: "Girls Frock Dress"
-  },
-  {
-    id: 2,
-    count: "02",
-    title: "Modern and timeless clothes from the best stylists.",
-    description:
-      "These dresses are often bold and eye-catching, and they can be dressed up or down depending on the occasion.",
-    topHotspot: "Cotton Hat",
-    bottomHotspot: "Junior Sweatshirt Kids"
-  },
-  {
-    id: 3,
-    count: "03",
-    title: "Make a Great Impression By Wearing The Right Clothes",
-    description:
-      "Denim is always a classic, and it's no exception in 2023. Denim jackets, jeans, and skirts are all popular trends this year.",
-    topHotspot: "Pro Blue Running Sports",
-    bottomHotspot: "Rust Solid Culottes"
-  }
-];
+import { useCurrency } from "../context/CurrencyContext";
+import { useLanguage } from "../context/LanguageContext";
 
 const heroProducts = [
   {
@@ -39,7 +11,7 @@ const heroProducts = [
     price: "$12.00",
     oldPrice: "$20.00",
     color: "White",
-    image: "/assets/products/cap-white.svg"
+    image: "/assets/products/cap-white.avif"
   },
   {
     id: 2,
@@ -48,7 +20,7 @@ const heroProducts = [
     price: "$20.00",
     oldPrice: "$25.00",
     color: "Yellow",
-    image: "/assets/products/shirt-yellow.svg"
+    image: "/assets/products/shirt-yellow.avif"
   },
   {
     id: 3,
@@ -57,7 +29,7 @@ const heroProducts = [
     price: "$15.00",
     oldPrice: "$25.00",
     color: "Brown",
-    image: "/assets/products/top-brown.svg"
+    image: "/assets/products/top-brown.avif"
   }
 ];
 
@@ -65,6 +37,34 @@ const partners = ["VOGUE", "VOGUE", "VOGUE", "VOGUE"];
 
 export function Hero() {
   const { addItem } = useCart();
+  const { formatPrice } = useCurrency();
+  const { t } = useLanguage();
+  const heroSlides = [
+    {
+      id: 1,
+      count: "01",
+      title: t("hero.slide1Title"),
+      description: t("hero.slide1Description"),
+      topHotspot: t("hero.slide1TopHotspot"),
+      bottomHotspot: t("hero.slide1BottomHotspot")
+    },
+    {
+      id: 2,
+      count: "02",
+      title: t("hero.slide2Title"),
+      description: t("hero.slide2Description"),
+      topHotspot: t("hero.slide2TopHotspot"),
+      bottomHotspot: t("hero.slide2BottomHotspot")
+    },
+    {
+      id: 3,
+      count: "03",
+      title: t("hero.slide3Title"),
+      description: t("hero.slide3Description"),
+      topHotspot: t("hero.slide3TopHotspot"),
+      bottomHotspot: t("hero.slide3BottomHotspot")
+    }
+  ];
   const [activeSlide, setActiveSlide] = useState(1);
   const [activeProduct, setActiveProduct] = useState(0);
 
@@ -124,7 +124,7 @@ export function Hero() {
                       </div>
                       <p className="hero-text hero-text--light">{item.description}</p>
                       <a href="/" onClick={(event) => event.preventDefault()} className="hero-shop-button">
-                        SHOP NOW
+                        {t("common.shopNow").toUpperCase()}
                         <span>&raquo;</span>
                       </a>
                     </div>
@@ -136,21 +136,21 @@ export function Hero() {
         </div>
 
         <div className="hero-hotspot hero-hotspot--top">
-          <button type="button" aria-label="Featured product point">
+          <button type="button" aria-label={t("hero.featuredPoint")}>
             +
           </button>
           <span>{slide.topHotspot}</span>
         </div>
 
         <div className="hero-hotspot hero-hotspot--bottom">
-          <button type="button" aria-label="Featured product point">
+          <button type="button" aria-label={t("hero.featuredPoint")}>
             +
           </button>
           <span>{slide.bottomHotspot}</span>
         </div>
 
         <div className="partner-strip">
-          <span className="partner-strip__label">PARTNERS</span>
+          <span className="partner-strip__label">{t("hero.partners")}</span>
           <div className="partner-strip__viewport">
             <div className="partner-strip__track">
               {partners.concat(partners).map((partner, index) => (
@@ -170,8 +170,8 @@ export function Hero() {
               <img src={product.image} alt={product.name} />
             </div>
             <div className="showcase-card__price">
-              <strong>{product.price}</strong>
-              <span>{product.oldPrice}</span>
+              <strong>{formatPrice(product.price)}</strong>
+              <span>{formatPrice(product.oldPrice)}</span>
             </div>
             <p className="showcase-card__color">
               COLOR:<span>{product.color}</span>
@@ -192,18 +192,18 @@ export function Hero() {
                 });
               }}
             >
-              ADD TO CART &raquo;
+              {t("common.addToCart").toUpperCase()} &raquo;
             </button>
           </article>
 
-          <div className="showcase-dots" aria-label="Product slides">
+          <div className="showcase-dots" aria-label={t("hero.productSlides")}>
             {heroProducts.map((item, index) => (
               <button
                 type="button"
                 key={item.id}
                 className={index === activeProduct ? "is-active" : ""}
                 onClick={() => setActiveProduct(index)}
-                aria-label={`Go to product ${index + 1}`}
+                aria-label={t("hero.goToProduct", { count: index + 1 })}
               />
             ))}
           </div>

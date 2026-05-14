@@ -5,6 +5,7 @@ import {
   testimonialsSection
 } from "./data/homepage";
 import { Benefits } from "./components/Benefits";
+import { AddressPage } from "./components/AddressPage";
 import { AuthPage } from "./components/AuthPage";
 import { CartDrawer } from "./components/CartDrawer";
 import { CartPage } from "./components/CartPage";
@@ -19,15 +20,22 @@ import { Footer } from "./components/Footer";
 import { Header } from "./components/Header";
 import { Hero } from "./components/Hero";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { MyOrdersPage } from "./components/MyOrdersPage";
 import { NewArrivalShowcase } from "./components/NewArrivalShowcase";
 import { Newsletter } from "./components/Newsletter";
 import { OrderSuccessPage } from "./components/OrderSuccessPage";
 import { TestimonialsSection } from "./components/TestimonialsSection";
 import { TrackOrderPage } from "./components/TrackOrderPage";
+import { WishlistPage } from "./components/WishlistPage";
 
 import { SpotlightBanner } from "./components/SpotlightBanner";
 import { AuthProvider } from "./context/AuthContext";
+import { AddressProvider } from "./context/AddressContext";
 import { CartProvider } from "./context/CartContext";
+import { CurrencyProvider } from "./context/CurrencyContext";
+import { useLanguage } from "./context/LanguageContext";
+import { OrdersProvider } from "./context/OrdersContext";
+import { WishlistProvider } from "./context/WishlistContext";
 
 const authRoutes = new Set(["login", "register", "forgot-password"]);
 const apiBaseUrl =
@@ -75,6 +83,18 @@ function getCurrentRoute() {
     return "checkout";
   }
 
+  if (hash === "wishlist") {
+    return "wishlist";
+  }
+
+  if (hash === "my-orders") {
+    return "my-orders";
+  }
+
+  if (hash === "my-address") {
+    return "my-address";
+  }
+
   if (/^order-success\/[^/]+$/.test(hash)) {
     return "order-success";
   }
@@ -99,6 +119,7 @@ function getCurrentHashPath() {
 }
 
 function App() {
+  const { t } = useLanguage();
   const [route, setRoute] = useState(getCurrentRoute);
   const [hashPath, setHashPath] = useState(getCurrentHashPath);
   const [categoryShowcase, setCategoryShowcase] = useState({
@@ -366,7 +387,7 @@ function App() {
   if (route === "home") {
     pageContent = isHomeLoading ? (
       <main>
-        <LoadingScreen label="Loading home page" />
+        <LoadingScreen label={t("common.loading")} />
       </main>
     ) : (
       <>
@@ -406,6 +427,12 @@ function App() {
     pageContent = <CartPage />;
   } else if (route === "checkout") {
     pageContent = <CheckoutPage apiBaseUrl={apiBaseUrl} />;
+  } else if (route === "wishlist") {
+    pageContent = <WishlistPage />;
+  } else if (route === "my-orders") {
+    pageContent = <MyOrdersPage />;
+  } else if (route === "my-address") {
+    pageContent = <AddressPage />;
   } else if (route === "order-success") {
     pageContent = <OrderSuccessPage apiBaseUrl={apiBaseUrl} hashPath={hashPath} />;
   } else if (route === "track-order") {
@@ -416,14 +443,22 @@ function App() {
 
   return (
     <AuthProvider apiBaseUrl={apiBaseUrl}>
-      <CartProvider>
-        <div className={`page-shell ${isRouteLoading ? "page-shell--loading" : ""}`}>
-          {shouldShowHeader ? <Header alwaysSolid={route !== "home"} /> : null}
-          {pageContent}
-          {shouldShowFooter ? <Footer /> : null}
-          {!authRoutes.has(route) ? <CartDrawer /> : null}
-        </div>
-      </CartProvider>
+      <CurrencyProvider>
+        <AddressProvider>
+          <WishlistProvider>
+            <OrdersProvider>
+              <CartProvider>
+                <div className={`page-shell ${isRouteLoading ? "page-shell--loading" : ""}`}>
+                  {shouldShowHeader ? <Header alwaysSolid={route !== "home"} /> : null}
+                  {pageContent}
+                  {shouldShowFooter ? <Footer /> : null}
+                  {!authRoutes.has(route) ? <CartDrawer /> : null}
+                </div>
+              </CartProvider>
+            </OrdersProvider>
+          </WishlistProvider>
+        </AddressProvider>
+      </CurrencyProvider>
     </AuthProvider>
   );
 }

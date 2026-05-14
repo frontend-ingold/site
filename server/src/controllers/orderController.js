@@ -63,6 +63,7 @@ async function ensureOrdersTables() {
       note TEXT,
       payment_method TEXT NOT NULL CHECK (payment_method IN ('card', 'cod')),
       card_last4 TEXT,
+      currency_code TEXT NOT NULL DEFAULT 'USD',
       subtotal NUMERIC(10,2) NOT NULL,
       discount NUMERIC(10,2) NOT NULL DEFAULT 0,
       shipping NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -71,6 +72,11 @@ async function ensureOrdersTables() {
       estimated_delivery DATE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await pool.query(`
+    ALTER TABLE customer_orders
+    ADD COLUMN IF NOT EXISTS currency_code TEXT NOT NULL DEFAULT 'USD'
   `);
 
   await pool.query(`
@@ -107,6 +113,7 @@ function mapOrder(orderRow, itemRows) {
     saveInfo: orderRow.save_info,
     note: orderRow.note,
     paymentMethod: orderRow.payment_method,
+    currencyCode: orderRow.currency_code ?? "USD",
     subtotal: formatMoney(orderRow.subtotal),
     discount: formatMoney(orderRow.discount),
     shipping: formatMoney(orderRow.shipping),
@@ -149,6 +156,7 @@ export async function createOrder(request, response) {
     note,
     paymentMethod,
     cardNumber,
+    currencyCode,
     subtotal,
     discount,
     shipping,
@@ -164,6 +172,9 @@ export async function createOrder(request, response) {
   const normalizedState = String(state ?? "").trim();
   const normalizedZipCode = String(zipCode ?? "").trim();
   const normalizedPaymentMethod = String(paymentMethod ?? "").trim().toLowerCase();
+  const normalizedCurrencyCode = ["USD", "EUR", "INR"].includes(String(currencyCode ?? "").trim().toUpperCase())
+    ? String(currencyCode).trim().toUpperCase()
+    : "USD";
 
   if (
     !normalizedContact ||
@@ -242,6 +253,7 @@ export async function createOrder(request, response) {
           note,
           payment_method,
           card_last4,
+          currency_code,
           subtotal,
           discount,
           shipping,
@@ -250,7 +262,7 @@ export async function createOrder(request, response) {
           estimated_delivery
         )
         VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23
         )
         RETURNING *
       `,
@@ -271,6 +283,7 @@ export async function createOrder(request, response) {
         String(note ?? "").trim(),
         normalizedPaymentMethod,
         normalizedPaymentMethod === "card" ? String(cardNumber ?? "").replace(/\D/g, "").slice(-4) : null,
+        normalizedCurrencyCode,
         numericSubtotal,
         numericDiscount,
         numericShipping,

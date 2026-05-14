@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
 
 export function CategoryGrid({ items }) {
   const viewportRef = useRef(null);
   const { addItem } = useCart();
+  const { formatPrice } = useCurrency();
   const [activeCategoryId, setActiveCategoryId] = useState("all");
   const [canGoPrev, setCanGoPrev] = useState(false);
   const [canGoNext, setCanGoNext] = useState(false);
@@ -169,8 +171,8 @@ export function CategoryGrid({ items }) {
                   </div>
 
                   <div className="category-product-card__price">
-                    <strong>{item.price}</strong>
-                    {item.oldPrice ? <span>{item.oldPrice}</span> : null}
+                    <strong>{formatPrice(item.price)}</strong>
+                    {item.oldPrice ? <span>{formatPrice(item.oldPrice)}</span> : null}
                   </div>
 
                   <button type="button" className="category-product-card__option">

@@ -1,7 +1,9 @@
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
 
 export function EditorialBanner({ content }) {
   const { addItem } = useCart();
+  const { formatPrice } = useCurrency();
 
   return (
     <section className="section editorial-banner-section">
@@ -26,8 +28,8 @@ export function EditorialBanner({ content }) {
                 <img src={item.image} alt={item.name} />
               </div>
               <div className="editorial-product-card__price">
-                <strong>{item.price}</strong>
-                {item.oldPrice ? <span>{item.oldPrice}</span> : null}
+                <strong>{formatPrice(item.price)}</strong>
+                {item.oldPrice ? <span>{formatPrice(item.oldPrice)}</span> : null}
               </div>
               <p className="editorial-product-card__option">
                 {item.optionLabel}:{item.optionValue}

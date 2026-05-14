@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { LoadingScreen } from "./LoadingScreen";
+import { useLanguage } from "../context/LanguageContext";
 
 function getDisplayImage(url) {
   if (!url) {
@@ -24,6 +25,7 @@ function getDisplayImage(url) {
 }
 
 export function CollectionsPage({ data, isLoading = false }) {
+  const { t } = useLanguage();
   const collectionCards = useMemo(() => {
     return data.shopCards ?? [];
   }, [data.shopCards]);
@@ -33,7 +35,7 @@ export function CollectionsPage({ data, isLoading = false }) {
       <main className="collections-page">
         <section className="collections-page__hero">
           <div className="container">
-            <LoadingScreen label="Loading collections" />
+            <LoadingScreen label={t("collections.loadingCollections")} />
           </div>
         </section>
       </main>
@@ -44,7 +46,7 @@ export function CollectionsPage({ data, isLoading = false }) {
     <main className="collections-page">
       <section className="collections-page__hero">
         <div className="container">
-          <h2>Collections</h2>
+          <h2>{t("collections.title")}</h2>
         </div>
       </section>
 
@@ -65,7 +67,7 @@ export function CollectionsPage({ data, isLoading = false }) {
               <div className="collections-card__body">
                 <h2>{item.title}</h2>
                 <button type="button" className="collections-card__count">
-                  {item.itemCount} - ITEMS
+                  {t("collections.itemsCount", { count: item.itemCount })}
                 </button>
               </div>
             </article>

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { LoadingScreen } from "./LoadingScreen";
 import { useCart } from "../context/CartContext";
+import { useCurrency } from "../context/CurrencyContext";
+import { useWishlist } from "../context/WishlistContext";
 
 const sortOptions = [
   { value: "best-selling", label: "Best selling" },
@@ -73,6 +75,8 @@ const colorSwatches = {
 
 function CollectionProductCard({ item, collectionSlug }) {
   const { addItem } = useCart();
+  const { formatPrice } = useCurrency();
+  const { hasItem, toggleItem } = useWishlist();
   const attributeImages = getAttributeImages(item);
   const [activeAttributeIndex, setActiveAttributeIndex] = useState(0);
 
@@ -84,9 +88,36 @@ function CollectionProductCard({ item, collectionSlug }) {
   const previewImage = activeAttribute?.image || activeAttribute?.images?.[0] || item.image;
   const productHref = getProductHref(collectionSlug, item.id);
   const isColorAttribute = String(item.optionLabel ?? "").trim().toLowerCase() === "color:";
+  const wishlistKey = `${collectionSlug}::${item.id}`;
+  const isWishlisted = hasItem(wishlistKey);
 
   return (
     <article className="collection-product-card">
+      <button
+        type="button"
+        className={`collection-product-card__wishlist ${isWishlisted ? "is-active" : ""}`}
+        aria-label={isWishlisted ? `Remove ${item.name} from wishlist` : `Save ${item.name} to wishlist`}
+        onClick={() => {
+          toggleItem({
+            key: wishlistKey,
+            id: item.id,
+            productId: item.id,
+            collectionSlug,
+            href: productHref,
+            name: item.name,
+            brand: item.brand,
+            category: item.category,
+            price: item.price,
+            oldPrice: item.oldPrice,
+            image: previewImage,
+            optionLabel: item.optionLabel,
+            optionValue: activeAttribute?.value || item.optionValue
+          });
+        }}
+      >
+        ♥
+      </button>
+
       <p className="collection-product-card__brand">{item.brand}</p>
       <h3>
         <a href={productHref}>{item.name}</a>
@@ -125,8 +156,8 @@ function CollectionProductCard({ item, collectionSlug }) {
       ) : null}
 
       <div className="collection-product-card__price">
-        <strong>{item.price}</strong>
-        {item.oldPrice ? <span>{item.oldPrice}</span> : null}
+        <strong>{formatPrice(item.price)}</strong>
+        {item.oldPrice ? <span>{formatPrice(item.oldPrice)}</span> : null}
       </div>
 
       <button type="button" className="collection-product-card__option">
@@ -166,6 +197,7 @@ function CollectionProductCard({ item, collectionSlug }) {
 export function CollectionProductListPage({ data, isLoading = false }) {
   const products = data.products ?? [];
   const collection = data.collection;
+  const { formatAmount } = useCurrency();
 
   const [sortBy, setSortBy] = useState("best-selling");
   const [availability, setAvailability] = useState({
@@ -406,7 +438,7 @@ export function CollectionProductListPage({ data, isLoading = false }) {
                   </button>
                 </div>
                 <p className="collection-filter-card__summary">
-                  The highest price is ${maxPrice.toFixed(2)}
+                  The highest price is {formatAmount(maxPrice)}
                 </p>
                 <div className="collection-filter-card__price-grid">
                   <label>

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useCurrency } from "../context/CurrencyContext";
+import { useOrders } from "../context/OrdersContext";
 
 function formatDate(value) {
   if (!value) {
@@ -14,6 +16,8 @@ function formatDate(value) {
 
 export function TrackOrderPage({ apiBaseUrl, hashPath }) {
   const initialOrderNumber = hashPath.startsWith("track-order/") ? hashPath.replace(/^track-order\//, "") : "";
+  const { orders, getOrder, upsertOrder } = useOrders();
+  const { formatStoredAmount } = useCurrency();
   const [orderNumberInput, setOrderNumberInput] = useState(initialOrderNumber);
   const [order, setOrder] = useState(null);
   const [errorMessage, setErrorMessage] = useState("");
@@ -25,6 +29,13 @@ export function TrackOrderPage({ apiBaseUrl, hashPath }) {
 
   useEffect(() => {
     let isMounted = true;
+    const storedOrder = getOrder(initialOrderNumber);
+
+    if (storedOrder) {
+      setOrder(storedOrder);
+      setErrorMessage("");
+      setIsLoading(false);
+    }
 
     async function loadOrder() {
       if (!initialOrderNumber) {
@@ -47,6 +58,7 @@ export function TrackOrderPage({ apiBaseUrl, hashPath }) {
         if (isMounted) {
           setOrder(data.order);
           setErrorMessage("");
+          upsertOrder(data.order);
         }
       } catch (error) {
         if (isMounted) {
@@ -65,7 +77,7 @@ export function TrackOrderPage({ apiBaseUrl, hashPath }) {
     return () => {
       isMounted = false;
     };
-  }, [apiBaseUrl, initialOrderNumber]);
+  }, [apiBaseUrl, getOrder, initialOrderNumber, upsertOrder]);
 
   function handleSubmit(event) {
     event.preventDefault();
@@ -96,6 +108,25 @@ export function TrackOrderPage({ apiBaseUrl, hashPath }) {
             <button type="submit">Track</button>
           </form>
           {errorMessage ? <p className="track-order-page__message is-error">{errorMessage}</p> : null}
+
+          {!initialOrderNumber && orders.length ? (
+            <div className="track-order-page__recent-orders">
+              <span>Recent orders</span>
+              <div className="track-order-page__recent-list">
+                {orders.slice(0, 4).map((item) => (
+                  <button
+                    type="button"
+                    key={item.orderNumber}
+                    onClick={() => {
+                      window.location.hash = `/track-order/${item.orderNumber}`;
+                    }}
+                  >
+                    {item.orderNumber}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -144,7 +175,7 @@ export function TrackOrderPage({ apiBaseUrl, hashPath }) {
                   </p>
                 </div>
                 <strong>
-                  {item.quantity} × ${item.price}
+                  {item.quantity} × {formatStoredAmount(item.price, order.currencyCode)}
                 </strong>
               </article>
             ))}
