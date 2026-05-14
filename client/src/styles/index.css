@@ -17,6 +17,7 @@
 
 html {
   scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
@@ -24,6 +25,7 @@ body {
   font-family: "Manrope", sans-serif;
   background: radial-gradient(circle at top, #fff8ef 0%, var(--bg) 48%, #e6efe8 100%);
   color: var(--text);
+  overflow-x: hidden;
 }
 
 a {
@@ -38,6 +40,7 @@ img {
 
 .page-shell {
   min-height: 100vh;
+  overflow-x: clip;
 }
 
 .container {
@@ -234,6 +237,7 @@ img {
   background-position: center;
   background-size: cover;
   color: #fff;
+  overflow-x: clip;
 }
 
 .page-hero {
@@ -599,6 +603,8 @@ img {
 
 .hero-visual {
   position: relative;
+  overflow: hidden;
+  border-radius: 32px;
 }
 
 .hero-visual img,
