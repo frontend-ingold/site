@@ -1,5 +1,5 @@
 import express from "express";
-import { pool } from "../db/pool.js";
+import { query } from "../db/pool.js";
 import { generateAuthToken, hashPassword, verifyPassword } from "../utils/auth.js";
 
 export const authRouter = express.Router();
@@ -36,14 +36,14 @@ authRouter.post("/register", async (req, res) => {
   }
 
   try {
-    const existing = await pool.query("SELECT id FROM users WHERE email = $1", [email.trim().toLowerCase()]);
+    const existing = await query("SELECT id FROM users WHERE email = $1", [email.trim().toLowerCase()]);
 
     if (existing.rowCount > 0) {
       return res.status(409).json({ message: "An account with this email already exists." });
     }
 
     const passwordHash = await hashPassword(password.trim());
-    const userResult = await pool.query(
+    const userResult = await query(
       `
         INSERT INTO users (full_name, email, phone, password_hash)
         VALUES ($1, $2, $3, $4)
@@ -58,7 +58,7 @@ authRouter.post("/register", async (req, res) => {
     );
 
     const token = generateAuthToken();
-    await pool.query("INSERT INTO user_sessions (user_id, token) VALUES ($1, $2)", [
+    await query("INSERT INTO user_sessions (user_id, token) VALUES ($1, $2)", [
       userResult.rows[0].id,
       token,
     ]);
@@ -82,7 +82,7 @@ authRouter.post("/login", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
+    const result = await query(
       `
         SELECT id, full_name, email, phone, password_hash, created_at
         FROM users
@@ -103,7 +103,7 @@ authRouter.post("/login", async (req, res) => {
     }
 
     const token = generateAuthToken();
-    await pool.query("INSERT INTO user_sessions (user_id, token) VALUES ($1, $2)", [user.id, token]);
+    await query("INSERT INTO user_sessions (user_id, token) VALUES ($1, $2)", [user.id, token]);
 
     return res.json({
       message: "Login successful.",
@@ -125,7 +125,7 @@ authRouter.post("/forgot-password", async (req, res) => {
 
   try {
     const normalizedEmail = email.trim().toLowerCase();
-    const userResult = await pool.query("SELECT id, email FROM users WHERE email = $1", [normalizedEmail]);
+    const userResult = await query("SELECT id, email FROM users WHERE email = $1", [normalizedEmail]);
 
     if (userResult.rowCount === 0) {
       return res.status(404).json({ message: "No account found for this email." });
@@ -134,11 +134,11 @@ authRouter.post("/forgot-password", async (req, res) => {
     const user = userResult.rows[0];
     const resetCode = generateResetCode();
 
-    await pool.query("UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL", [
+    await query("UPDATE password_reset_tokens SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL", [
       user.id,
     ]);
 
-    await pool.query(
+    await query(
       `
         INSERT INTO password_reset_tokens (user_id, email, reset_code, expires_at)
         VALUES ($1, $2, $3, NOW() + INTERVAL '15 minutes')
@@ -166,7 +166,7 @@ authRouter.post("/reset-password", async (req, res) => {
 
   try {
     const normalizedEmail = email.trim().toLowerCase();
-    const result = await pool.query(
+    const result = await query(
       `
         SELECT prt.id, prt.user_id
         FROM password_reset_tokens prt
@@ -187,9 +187,9 @@ authRouter.post("/reset-password", async (req, res) => {
     const tokenRow = result.rows[0];
     const passwordHash = await hashPassword(newPassword.trim());
 
-    await pool.query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, tokenRow.user_id]);
-    await pool.query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1", [tokenRow.id]);
-    await pool.query("DELETE FROM user_sessions WHERE user_id = $1", [tokenRow.user_id]);
+    await query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, tokenRow.user_id]);
+    await query("UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1", [tokenRow.id]);
+    await query("DELETE FROM user_sessions WHERE user_id = $1", [tokenRow.user_id]);
 
     return res.json({ message: "Password reset successful. Please login with your new password." });
   } catch (error) {
@@ -206,7 +206,7 @@ authRouter.get("/me", async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
+    const result = await query(
       `
         SELECT u.id, u.full_name, u.email, u.phone, u.created_at
         FROM user_sessions s
@@ -235,7 +235,7 @@ authRouter.post("/logout", async (req, res) => {
   }
 
   try {
-    await pool.query("DELETE FROM user_sessions WHERE token = $1", [token]);
+    await query("DELETE FROM user_sessions WHERE token = $1", [token]);
     return res.json({ message: "Logged out successfully." });
   } catch (error) {
     console.error("Logout failed.", error);

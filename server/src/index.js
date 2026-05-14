@@ -1,28 +1,10 @@
-import cors from "cors";
 import dotenv from "dotenv";
-import express from "express";
+import { app } from "./app.js";
 import { ensureDatabase } from "./db/initDb.js";
-import { authRouter } from "./routes/auth.js";
-import { bookingsRouter } from "./routes/bookings.js";
 
 dotenv.config();
 
-const app = express();
-const port = Number(process.env.PORT || 4000);
-
-app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || "http://localhost:5173",
-  })
-);
-app.use(express.json());
-
-app.get("/api/health", (_req, res) => {
-  res.json({ ok: true });
-});
-
-app.use("/api/auth", authRouter);
-app.use("/api/bookings", bookingsRouter);
+const port = Number(process.env.PORT || 4001);
 
 try {
   await ensureDatabase();

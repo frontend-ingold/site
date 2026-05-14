@@ -1,5 +1,5 @@
 import express from "express";
-import { pool } from "../db/pool.js";
+import { query } from "../db/pool.js";
 
 export const bookingsRouter = express.Router();
 
@@ -30,7 +30,7 @@ async function findUserIdByToken(token) {
     return null;
   }
 
-  const result = await pool.query("SELECT user_id FROM user_sessions WHERE token = $1", [token]);
+  const result = await query("SELECT user_id FROM user_sessions WHERE token = $1", [token]);
   return result.rowCount > 0 ? result.rows[0].user_id : null;
 }
 
@@ -58,7 +58,7 @@ bookingsRouter.get("/my", async (req, res) => {
       return res.status(401).json({ message: "Invalid session." });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `
         SELECT
           id,
@@ -130,7 +130,7 @@ bookingsRouter.patch("/:id/cancel", async (req, res) => {
       return res.status(400).json({ message: "Invalid booking id." });
     }
 
-    const bookingResult = await pool.query(
+    const bookingResult = await query(
       `
         SELECT id, status
         FROM bookings
@@ -147,7 +147,7 @@ bookingsRouter.patch("/:id/cancel", async (req, res) => {
       return res.status(400).json({ message: "This booking is already cancelled." });
     }
 
-    const result = await pool.query(
+    const result = await query(
       `
         UPDATE bookings
         SET
@@ -201,7 +201,7 @@ bookingsRouter.post("/", async (req, res) => {
       const bookingReference = generateBookingReference();
 
       try {
-        result = await pool.query(
+        result = await query(
           `
             INSERT INTO bookings (
               booking_reference,
