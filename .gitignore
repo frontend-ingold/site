@@ -4,5 +4,7 @@ dist/
 client/node_modules/
 client/dist/
 client/.vite/
+server/node_modules/
+server/.env
 .DS_Store
 Thumbs.db

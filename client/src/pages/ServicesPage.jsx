@@ -2,6 +2,7 @@ import { homePageData } from "../data/homeData";
 import { SectionHeader } from "../components/common/SectionHeader";
 import { RevealOnScroll } from "../components/common/RevealOnScroll";
 import { PrimaryButton } from "../components/common/PrimaryButton";
+import { Link } from "react-router-dom";
 
 export function ServicesPage() {
   const { services } = homePageData;
@@ -59,7 +60,10 @@ export function ServicesPage() {
                   <h3>{service.name}</h3>
                   <p>{service.description}</p>
                   <div className="service-list-actions">
-                    <PrimaryButton label="Book Now" variant="primary" />
+                    <PrimaryButton label="Book Now" variant="primary" href={`/services/${service.slug}`} />
+                    <Link to={`/services/${service.slug}`} className="service-inline-link">
+                      View Details
+                    </Link>
                     <a href="tel:+919876543210" className="service-inline-link">
                       Call For Booking
                     </a>
