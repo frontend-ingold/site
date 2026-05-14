@@ -7,7 +7,7 @@ import { useAuth } from "../context/AuthContext";
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4001";
 
 export function MyServicesPage() {
-  const { isAuthenticated, token, user } = useAuth();
+  const { isAuthenticated, isReady, token, user } = useAuth();
   const [state, setState] = useState({
     loading: true,
     error: "",
@@ -21,7 +21,7 @@ export function MyServicesPage() {
   });
 
   useEffect(() => {
-    if (!isAuthenticated || !token) {
+    if (!isReady || !isAuthenticated || !token) {
       return;
     }
 
@@ -67,7 +67,17 @@ export function MyServicesPage() {
     return () => {
       isActive = false;
     };
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, isReady, token]);
+
+  if (!isReady) {
+    return (
+      <section className="my-services-page">
+        <div className="container">
+          <p className="page-state">Checking your login...</p>
+        </div>
+      </section>
+    );
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;

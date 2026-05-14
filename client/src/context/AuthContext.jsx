@@ -9,11 +9,13 @@ export function AuthProvider({ children }) {
     token: "",
     user: null,
   });
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem(storageKey);
 
     if (!stored) {
+      setIsReady(true);
       return;
     }
 
@@ -25,6 +27,8 @@ export function AuthProvider({ children }) {
       }
     } catch {
       localStorage.removeItem(storageKey);
+    } finally {
+      setIsReady(true);
     }
   }, []);
 
@@ -99,12 +103,13 @@ export function AuthProvider({ children }) {
     () => ({
       token: authState.token,
       user: authState.user,
+      isReady,
       isAuthenticated: Boolean(authState.token && authState.user),
       register,
       login,
       logout,
     }),
-    [authState]
+    [authState, isReady]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
