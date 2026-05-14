@@ -2,6 +2,7 @@ import { useCurrency } from "../context/CurrencyContext";
 
 export function SpotlightBanner({ content }) {
   const { formatPrice } = useCurrency();
+  const spotlightTargetHref = "#/collections/women-top";
 
   return (
     <section className="section container spotlight-banner-section">
@@ -19,7 +20,7 @@ export function SpotlightBanner({ content }) {
             <span>{formatPrice(content.oldPrice)}</span>
           </div>
 
-          <a href="/" onClick={(event) => event.preventDefault()} className="spotlight-banner__button">
+          <a href={spotlightTargetHref} className="spotlight-banner__button">
             {content.buttonLabel}
             <span>&raquo;</span>
           </a>

@@ -42,6 +42,8 @@ export function NewArrivalShowcase({ content }) {
     viewport.scrollBy({ left: amount, behavior: "smooth" });
   };
 
+  const featureTargetHref = `#/${activeTab?.slug ? `collections/${activeTab.slug}` : "collections"}`;
+
   return (
     <section className="arrival-showcase">
       <div className="arrival-showcase__feature">
@@ -54,7 +56,7 @@ export function NewArrivalShowcase({ content }) {
             <h2>{content.feature.title}</h2>
             <div className="arrival-showcase__feature-body">
               <p>{content.feature.description}</p>
-              <a href="/" onClick={(event) => event.preventDefault()} className="arrival-showcase__feature-button">
+              <a href={featureTargetHref} className="arrival-showcase__feature-button">
                 {content.feature.buttonLabel}
                 <span>&raquo;</span>
               </a>

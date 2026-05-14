@@ -34,6 +34,11 @@ const heroProducts = [
 ];
 
 const partners = ["VOGUE", "VOGUE", "VOGUE", "VOGUE"];
+const heroSlideTargets = {
+  1: "/collections/dress",
+  2: "/collections/sweater",
+  3: "/collections/women-top"
+};
 
 export function Hero() {
   const { addItem } = useCart();
@@ -123,7 +128,10 @@ export function Hero() {
                         <h1>{item.title}</h1>
                       </div>
                       <p className="hero-text hero-text--light">{item.description}</p>
-                      <a href="/" onClick={(event) => event.preventDefault()} className="hero-shop-button">
+                      <a
+                        href={`#${heroSlideTargets[item.id] ?? "/collections"}`}
+                        className="hero-shop-button"
+                      >
                         {t("common.shopNow").toUpperCase()}
                         <span>&raquo;</span>
                       </a>

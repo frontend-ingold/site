@@ -1,3 +1,6 @@
+import { useLanguage } from "../context/LanguageContext";
+import { pageMenuItems } from "../data/navigationPages";
+
 const footerColumns = {
   shop: [
     "Women's Vintage Polka Dot",
@@ -8,15 +11,7 @@ const footerColumns = {
     "Baby Girl's Bodycon Midi Dress"
   ],
   extras: ["Search", "All collections", "All products", "My Cart"],
-  categories: ["Cloths", "Dress", "Hats", "Jeans", "shoes", "Sweater", "westen top", "Women Top"],
-  quickLinks: [
-    "About us",
-    "Contact with Us",
-    "Faq's",
-    "Privacy Policy",
-    "Shipping & Delivery",
-    "Terms & Conditions"
-  ]
+  categories: ["Cloths", "Dress", "Hats", "Jeans", "shoes", "Sweater", "westen top", "Women Top"]
 };
 
 const socialItems = ["▶", "◉", "◎", "X"];
@@ -70,9 +65,9 @@ export function Footer() {
 
         <div className="footer-menu-column">
           <h3>{t("footer.quickLinks")}</h3>
-          {footerColumns.quickLinks.map((item) => (
-            <a href="/" key={item} onClick={(event) => event.preventDefault()}>
-              {item}
+          {pageMenuItems.map((item) => (
+            <a href={item.href} key={item.key}>
+              {item.label}
             </a>
           ))}
         </div>
@@ -80,4 +75,3 @@ export function Footer() {
     </footer>
   );
 }
-import { useLanguage } from "../context/LanguageContext";

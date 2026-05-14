@@ -14,9 +14,11 @@ import { CheckoutPage } from "./components/CheckoutPage";
 import { CollectionProductListPage } from "./components/CollectionProductListPage";
 import { CollectionProductDetailPage } from "./components/CollectionProductDetailPage";
 import { CollectionsPage } from "./components/CollectionsPage";
+import { ContentPage } from "./components/ContentPage";
 import { EditorialBanner } from "./components/EditorialBanner";
 import { FeaturedProducts } from "./components/FeaturedProducts";
 import { Footer } from "./components/Footer";
+import { FooterChatWidget } from "./components/FooterChatWidget";
 import { Header } from "./components/Header";
 import { Hero } from "./components/Hero";
 import { LoadingScreen } from "./components/LoadingScreen";
@@ -36,8 +38,10 @@ import { CurrencyProvider } from "./context/CurrencyContext";
 import { useLanguage } from "./context/LanguageContext";
 import { OrdersProvider } from "./context/OrdersContext";
 import { WishlistProvider } from "./context/WishlistContext";
+import { blogMenuItems, pageMenuItems, staticPages } from "./data/navigationPages";
 
 const authRoutes = new Set(["login", "register", "forgot-password"]);
+const staticPageRoutes = new Set([...pageMenuItems, ...blogMenuItems].map((item) => item.route));
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL ||
   (window.location.hostname === "localhost" ? "http://localhost:5000" : "https://clothsapi.vercel.app");
@@ -68,6 +72,10 @@ const defaultHomepageSections = {
 function getCurrentRoute() {
   const hash = window.location.hash.replace(/^#\/?/, "");
   if (authRoutes.has(hash)) {
+    return hash;
+  }
+
+  if (staticPageRoutes.has(hash)) {
     return hash;
   }
 
@@ -437,6 +445,8 @@ function App() {
     pageContent = <OrderSuccessPage apiBaseUrl={apiBaseUrl} hashPath={hashPath} />;
   } else if (route === "track-order") {
     pageContent = <TrackOrderPage apiBaseUrl={apiBaseUrl} hashPath={hashPath} />;
+  } else if (staticPageRoutes.has(route) && staticPages[route]) {
+    pageContent = <ContentPage content={staticPages[route]} />;
   } else {
     pageContent = <AuthPage route={route} />;
   }
@@ -452,6 +462,7 @@ function App() {
                   {shouldShowHeader ? <Header alwaysSolid={route !== "home"} /> : null}
                   {pageContent}
                   {shouldShowFooter ? <Footer /> : null}
+                  {shouldShowFooter ? <FooterChatWidget /> : null}
                   {!authRoutes.has(route) ? <CartDrawer /> : null}
                 </div>
               </CartProvider>

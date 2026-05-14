@@ -3,6 +3,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useLanguage } from "../context/LanguageContext";
+import { blogMenuItems, pageMenuItems } from "../data/navigationPages";
 
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL ||
@@ -25,6 +26,7 @@ export function Header({ alwaysSolid = false }) {
   const { user, isLoggedIn, logout } = useAuth();
   const { currency, setCurrency } = useCurrency();
   const { language, setLanguage, t, languages } = useLanguage();
+  const closeNavTimeoutRef = useRef(null);
   const accountMenuRef = useRef(null);
   const currencyMenuRef = useRef(null);
   const languageMenuRef = useRef(null);
@@ -41,6 +43,10 @@ export function Header({ alwaysSolid = false }) {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isCurrencyMenuOpen, setIsCurrencyMenuOpen] = useState(false);
   const [isLanguageMenuOpen, setIsLanguageMenuOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchProducts, setSearchProducts] = useState([]);
+  const [isSearchLoading, setIsSearchLoading] = useState(false);
 
   const navItems = [
     { label: t("header.allCategory") },
@@ -51,15 +57,6 @@ export function Header({ alwaysSolid = false }) {
   ];
 
   const localPanelLabels = new Set([t("header.pages"), t("header.blogs"), t("header.collections")]);
-  const pagesLinks = [
-    "About us",
-    "Contact with Us",
-    "Faq's",
-    "Privacy Policy",
-    "Shipping & Delivery",
-    "Terms & Conditions"
-  ];
-  const blogLinks = ["Blogs Page", "Article Page"];
   const activeLanguage = languages.find((item) => item.code === language) ?? languages[0];
   const activeCurrency = currencies.find((item) => item.code === currency) ?? currencies[0];
 
@@ -169,6 +166,68 @@ export function Header({ alwaysSolid = false }) {
     return () => document.removeEventListener("mousedown", handlePointerDown);
   }, []);
 
+  useEffect(() => {
+    if (!isSearchOpen || searchProducts.length > 0 || shopCards.length === 0) {
+      return undefined;
+    }
+
+    let isMounted = true;
+
+    async function loadSearchProducts() {
+      setIsSearchLoading(true);
+
+      try {
+        const responses = await Promise.all(
+          shopCards.map(async (item) => {
+            const response = await fetch(`${apiBaseUrl}/api/collections/${item.slug}`);
+
+            if (!response.ok) {
+              throw new Error(`Failed with status ${response.status}`);
+            }
+
+            const data = await response.json();
+            return (data.products ?? []).map((product) => ({
+              ...product,
+              collectionSlug: item.slug,
+              collectionTitle: item.title
+            }));
+          })
+        );
+
+        if (isMounted) {
+          setSearchProducts(responses.flat());
+        }
+      } catch (error) {
+        console.error("Failed to load search products", error);
+      } finally {
+        if (isMounted) {
+          setIsSearchLoading(false);
+        }
+      }
+    }
+
+    loadSearchProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isSearchOpen, searchProducts.length, shopCards]);
+
+  useEffect(() => {
+    if (!isSearchOpen) {
+      return undefined;
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setIsSearchOpen(false);
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isSearchOpen]);
+
   const promoImage = useMemo(() => {
     return (
       menuGroups.find((group) => group.id === activeMenuGroupId)?.promoImageUrl ||
@@ -179,6 +238,35 @@ export function Header({ alwaysSolid = false }) {
 
   const isSharedPanelOpen =
     !isMobileViewport && openNavLabel !== null && !localPanelLabels.has(openNavLabel);
+  const searchablePages = useMemo(() => [...pageMenuItems, ...blogMenuItems], []);
+  const searchResults = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+
+    if (!normalizedQuery) {
+      return {
+        pages: searchablePages.slice(0, 4),
+        collections: shopCards.slice(0, 4),
+        products: searchProducts.slice(0, 6)
+      };
+    }
+
+    const matches = (value) => String(value ?? "").toLowerCase().includes(normalizedQuery);
+
+    return {
+      pages: searchablePages.filter((item) => matches(item.label)).slice(0, 6),
+      collections: shopCards.filter((item) => matches(item.title) || matches(item.slug)).slice(0, 6),
+      products: searchProducts
+        .filter(
+          (item) =>
+            matches(item.name) ||
+            matches(item.brand) ||
+            matches(item.category) ||
+            matches(item.collectionTitle) ||
+            matches(item.optionValue)
+        )
+        .slice(0, 8)
+    };
+  }, [searchProducts, searchQuery, searchablePages, shopCards]);
 
   const accountLabel = isLoggedIn
     ? `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || user?.email || "My Account"
@@ -190,18 +278,63 @@ export function Header({ alwaysSolid = false }) {
     setIsLanguageMenuOpen(false);
   }
 
+  function clearPendingNavClose() {
+    if (closeNavTimeoutRef.current !== null) {
+      window.clearTimeout(closeNavTimeoutRef.current);
+      closeNavTimeoutRef.current = null;
+    }
+  }
+
+  function scheduleNavClose() {
+    clearPendingNavClose();
+    closeNavTimeoutRef.current = window.setTimeout(() => {
+      setOpenNavLabel(null);
+      closeNavTimeoutRef.current = null;
+    }, 140);
+  }
+
   function closeMobileMenu() {
+    clearPendingNavClose();
     setIsMobileMenuOpen(false);
     setOpenNavLabel(null);
     closeUtilityMenus();
   }
 
+  function closeSearch() {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+  }
+
+  function openSearch() {
+    clearPendingNavClose();
+    setOpenNavLabel(null);
+    closeUtilityMenus();
+    setIsMobileMenuOpen(false);
+    setIsSearchOpen(true);
+  }
+
+  useEffect(() => {
+    return () => {
+      clearPendingNavClose();
+    };
+  }, []);
+
   function renderSimpleLinks(items) {
     return (
       <div className="nav-simple-panel">
         {items.map((item) => (
-          <a href="#/" key={item} className="nav-simple-panel__link" onClick={(event) => event.preventDefault()}>
-            {item}
+          <a
+            href={item.href}
+            key={item.key}
+            className="nav-simple-panel__link"
+            onClick={() => {
+              setOpenNavLabel(null);
+              if (isMobileViewport) {
+                closeMobileMenu();
+              }
+            }}
+          >
+            {item.label}
           </a>
         ))}
       </div>
@@ -223,7 +356,7 @@ export function Header({ alwaysSolid = false }) {
   function renderShopCards() {
     return (
       <div className="nav-card-panel">
-        {shopCards.map((item) => (
+        {shopCards.slice(0, 4).map((item) => (
           <a
             href={item.href}
             key={item.id}
@@ -289,11 +422,11 @@ export function Header({ alwaysSolid = false }) {
 
   function renderPanelContent(label) {
     if (label === t("header.pages")) {
-      return renderSimpleLinks(pagesLinks);
+      return renderSimpleLinks(pageMenuItems);
     }
 
     if (label === t("header.blogs")) {
-      return renderSimpleLinks(blogLinks);
+      return renderSimpleLinks(blogMenuItems);
     }
 
     if (label === t("header.collections")) {
@@ -313,9 +446,14 @@ export function Header({ alwaysSolid = false }) {
     >
       <div
         className="header-mega-menu-shell"
+        onMouseEnter={() => {
+          if (!isMobileViewport) {
+            clearPendingNavClose();
+          }
+        }}
         onMouseLeave={() => {
           if (!isMobileViewport) {
-            setOpenNavLabel(null);
+            scheduleNavClose();
           }
         }}
       >
@@ -368,7 +506,7 @@ export function Header({ alwaysSolid = false }) {
                 </span>
               </button>
 
-              <button type="button" className="header-icon-button" aria-label="Search">
+              <button type="button" className="header-icon-button" aria-label="Search" onClick={openSearch}>
                 <svg viewBox="0 0 24 24" fill="none">
                   <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
                   <path d="M16 16L20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -431,6 +569,7 @@ export function Header({ alwaysSolid = false }) {
                       className={`nav-mega-menu ${isOpen ? "nav-mega-menu--open" : ""}`}
                       onMouseEnter={() => {
                         if (!isMobileViewport) {
+                          clearPendingNavClose();
                           setOpenNavLabel(item.label);
                         }
                       }}
@@ -629,7 +768,7 @@ export function Header({ alwaysSolid = false }) {
                   </div>
                 </div>
 
-                <button type="button" className="header-icon-button" aria-label="Search">
+                <button type="button" className="header-icon-button" aria-label="Search" onClick={openSearch}>
                   <svg viewBox="0 0 24 24" fill="none">
                     <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
                     <path d="M16 16L20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
@@ -667,8 +806,117 @@ export function Header({ alwaysSolid = false }) {
         </div>
 
         {isSharedPanelOpen ? (
-          <div className="header-shared-panel header-shared-panel--open">
+          <div
+            className="header-shared-panel header-shared-panel--open"
+            onMouseEnter={() => {
+              clearPendingNavClose();
+            }}
+            onMouseLeave={() => {
+              scheduleNavClose();
+            }}
+          >
             <div className="nav-mega-menu__panel">{renderPanelContent(openNavLabel)}</div>
+          </div>
+        ) : null}
+
+        {isSearchOpen ? (
+          <div className="header-search" role="dialog" aria-modal="true" aria-label="Search">
+            <button type="button" className="header-search__backdrop" aria-label="Close search" onClick={closeSearch} />
+            <div className="header-search__panel">
+              <div className="header-search__head">
+                <div className="header-search__field">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M16 16L20 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search products, collections, or pages"
+                    autoFocus
+                  />
+                </div>
+                <button type="button" className="header-search__close" onClick={closeSearch} aria-label="Close search">
+                  &times;
+                </button>
+              </div>
+
+              <div className="header-search__content">
+                <section className="header-search__group">
+                  <div className="header-search__label-row">
+                    <span>Pages</span>
+                  </div>
+                  <div className="header-search__list">
+                    {searchResults.pages.length ? (
+                      searchResults.pages.map((item) => (
+                        <a href={item.href} key={item.key} className="header-search__item" onClick={closeSearch}>
+                          <strong>{item.label}</strong>
+                          <span>Static page</span>
+                        </a>
+                      ))
+                    ) : (
+                      <p className="header-search__empty">No matching pages.</p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="header-search__group">
+                  <div className="header-search__label-row">
+                    <span>Collections</span>
+                  </div>
+                  <div className="header-search__list">
+                    {searchResults.collections.length ? (
+                      searchResults.collections.map((item) => (
+                        <a
+                          href={`#/collections/${item.slug}`}
+                          key={item.id}
+                          className="header-search__item header-search__item--media"
+                          onClick={closeSearch}
+                        >
+                          <img src={item.image} alt={item.title} />
+                          <div className="header-search__item-copy">
+                            <strong>{item.title}</strong>
+                            <span>{item.itemCount} items</span>
+                          </div>
+                        </a>
+                      ))
+                    ) : (
+                      <p className="header-search__empty">No matching collections.</p>
+                    )}
+                  </div>
+                </section>
+
+                <section className="header-search__group">
+                  <div className="header-search__label-row">
+                    <span>Products</span>
+                    {isSearchLoading ? <em>Loading</em> : null}
+                  </div>
+                  <div className="header-search__list">
+                    {searchResults.products.length ? (
+                      searchResults.products.map((item) => (
+                        <a
+                          href={`#/collections/${item.collectionSlug}/products/${item.id}`}
+                          key={`${item.collectionSlug}-${item.id}`}
+                          className="header-search__item header-search__item--media"
+                          onClick={closeSearch}
+                        >
+                          <img src={item.image} alt={item.name} />
+                          <div className="header-search__item-copy">
+                            <strong>{item.name}</strong>
+                            <span>{item.collectionTitle} · {item.brand}</span>
+                          </div>
+                        </a>
+                      ))
+                    ) : (
+                      <p className="header-search__empty">
+                        {isSearchLoading ? "Loading products..." : "No matching products."}
+                      </p>
+                    )}
+                  </div>
+                </section>
+              </div>
+            </div>
           </div>
         ) : null}
       </div>
