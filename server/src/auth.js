@@ -1,10 +1,14 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET;
+function getJwtSecret() {
+  const jwtSecret = process.env.JWT_SECRET;
 
-if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET is required.');
+  if (!jwtSecret) {
+    throw new Error('JWT_SECRET is required.');
+  }
+
+  return jwtSecret;
 }
 
 export async function hashPassword(password) {
@@ -22,13 +26,13 @@ export function signToken(user) {
       email: user.email,
       name: user.name,
     },
-    JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: '7d' },
   );
 }
 
 export function verifyToken(token) {
-  return jwt.verify(token, JWT_SECRET);
+  return jwt.verify(token, getJwtSecret());
 }
 
 export function extractBearerToken(header = '') {

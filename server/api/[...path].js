@@ -3,6 +3,11 @@ import { initializeDatabase } from '../src/db.js';
 
 let initialized = false;
 
+function requiresDatabase(url = '/') {
+  const pathname = new URL(url, 'http://localhost').pathname;
+  return !['/api/health', '/api/payments/config'].includes(pathname);
+}
+
 async function ensureDatabaseReady() {
   if (initialized) {
     return;
@@ -13,6 +18,9 @@ async function ensureDatabaseReady() {
 }
 
 export default async function handler(req, res) {
-  await ensureDatabaseReady();
+  if (requiresDatabase(req.url)) {
+    await ensureDatabaseReady();
+  }
+
   return handleRequest(req, res);
 }
