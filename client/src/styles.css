@@ -1647,7 +1647,20 @@ textarea {
     min-height: auto;
   }
 
+  .hero-slide {
+    display: none;
+    position: relative;
+    inset: auto;
+  }
+
+  .hero-slide.is-active {
+    display: block;
+  }
+
   .hero-slide-grid {
+    position: relative;
+    inset: auto;
+    min-height: clamp(560px, 82vh, 760px);
     padding: 20px;
   }
 
