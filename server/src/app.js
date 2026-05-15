@@ -15,6 +15,14 @@ function getRequestPath(url = '/') {
   return pathname.startsWith('/api') ? pathname : `/api${pathname}`;
 }
 
+function getGuestCountValue(guestCount) {
+  if (typeof guestCount === 'string' && guestCount.includes('+')) {
+    return Number.parseInt(guestCount, 10) || 8;
+  }
+
+  return Number.parseInt(guestCount, 10) || 0;
+}
+
 function isAllowedOrigin(origin) {
   if (!origin) {
     return true;
@@ -172,6 +180,56 @@ export async function handleRequest(req, res) {
   if (requestPath === '/api/health' && req.method === 'GET') {
     sendJson(req, res, 200, { status: 'ok', service: 'restu-booking-server' });
     return;
+  }
+
+  if (requestPath === '/api/bookings/availability' && req.method === 'GET') {
+    try {
+      const requestUrl = new URL(req.url, 'http://localhost');
+      const date = requestUrl.searchParams.get('date') || '';
+      const time = requestUrl.searchParams.get('time') || '';
+      const guests = requestUrl.searchParams.get('guests') || '0';
+
+      if (!date || !time || !guests) {
+        sendJson(req, res, 400, { message: 'Date, time, and guests are required.' });
+        return;
+      }
+
+      const requestedGuests = getGuestCountValue(guests);
+
+      if (requestedGuests <= 0) {
+        sendJson(req, res, 400, { message: 'A valid guest count is required.' });
+        return;
+      }
+
+      const result = await pool.query(
+        `
+          SELECT guest_count
+          FROM table_bookings
+          WHERE booking_date = $1 AND booking_time = $2
+        `,
+        [date, time],
+      );
+
+      const capacity = 120;
+      const reservedSeats = result.rows.reduce((sum, booking) => sum + getGuestCountValue(booking.guest_count), 0);
+      const remainingSeats = Math.max(0, capacity - reservedSeats);
+      const available = remainingSeats >= requestedGuests;
+
+      sendJson(req, res, 200, {
+        available,
+        capacity,
+        reservedSeats,
+        remainingSeats,
+        requestedGuests,
+        message: available
+          ? `${remainingSeats} seats are currently open for this slot.`
+          : `Only ${remainingSeats} seats remain for this slot. Please choose another time.`,
+      });
+      return;
+    } catch (error) {
+      sendJson(req, res, 500, { message: 'Failed to check availability.', error: error.message });
+      return;
+    }
   }
 
   if (requestPath === '/api/payments/config' && req.method === 'GET') {

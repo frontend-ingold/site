@@ -217,7 +217,10 @@ const initialDelivery = {
 };
 const initialAuth = { name: '', email: '', password: '', confirmPassword: '', resetToken: '' };
 const initialProfile = { name: '', email: '' };
-const API_BASE_URL = 'https://restu-api.vercel.app';
+const API_BASE_URL =
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5000'
+    : 'https://restu-api.vercel.app';
 const paymentOptions = [
   {
     value: 'cod',
@@ -233,6 +236,20 @@ const paymentOptions = [
     value: 'card',
     label: 'Credit / Debit Card',
     detail: 'Secure checkout powered by Razorpay.',
+  },
+];
+const bookingFeatures = [
+  {
+    title: 'Live Slot Check',
+    detail: 'See table availability for your selected date, time, and guest count before you book.',
+  },
+  {
+    title: 'Priority Seating',
+    detail: 'Birthday dinners, date nights, and family tables are tagged for smoother floor planning.',
+  },
+  {
+    title: 'Booking History',
+    detail: 'Signed-in guests can review reservations and delivery orders from one account view.',
   },
 ];
 
@@ -410,6 +427,7 @@ function App() {
   });
   const [authMode, setAuthMode] = useState('login');
   const [bookingMessage, setBookingMessage] = useState('');
+  const [availabilityMessage, setAvailabilityMessage] = useState('');
   const [deliveryMessage, setDeliveryMessage] = useState('');
   const [authMessage, setAuthMessage] = useState('');
   const [profileMessage, setProfileMessage] = useState('');
@@ -925,6 +943,28 @@ function App() {
     }
   }
 
+  async function handleAvailabilityCheck(event) {
+    event.preventDefault();
+    setAvailabilityMessage('');
+
+    try {
+      if (!heroBooking.date || !heroBooking.time || !heroBooking.guests) {
+        throw new Error('Please choose date, time, and number of guests first.');
+      }
+
+      const query = new URLSearchParams({
+        date: heroBooking.date,
+        time: heroBooking.time,
+        guests: heroBooking.guests,
+      });
+
+      const data = await apiRequest(`/api/bookings/availability?${query.toString()}`);
+      setAvailabilityMessage(data.message);
+    } catch (error) {
+      setAvailabilityMessage(error.message);
+    }
+  }
+
   async function handleDeliverySubmit(event) {
     event.preventDefault();
 
@@ -1026,6 +1066,7 @@ function App() {
           authUser={authUser}
           bookingMessage={bookingMessage}
           featuredMenuItems={featuredMenuItems}
+          availabilityMessage={availabilityMessage}
           heroBooking={heroBooking}
           reservationBooking={reservationBooking}
           setHeroBooking={setHeroBooking}
@@ -1033,6 +1074,7 @@ function App() {
           activeHeroSlide={activeHeroSlide}
           handleChange={handleChange}
           handleBookingSubmit={handleBookingSubmit}
+          handleAvailabilityCheck={handleAvailabilityCheck}
           handleProfileSubmit={handleProfileSubmit}
           isSubmitting={isSubmitting}
           isProfileSubmitting={isProfileSubmitting}
@@ -1049,6 +1091,25 @@ function App() {
 }
 
 function SiteHeader({ authUser, logout }) {
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    const closeMenu = () => setIsMobileNavOpen(false);
+    const handleResize = () => {
+      if (window.innerWidth > 760) {
+        setIsMobileNavOpen(false);
+      }
+    };
+
+    window.addEventListener('hashchange', closeMenu);
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('hashchange', closeMenu);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   return (
     <header className="top-shell">
       <nav className="topbar">
@@ -1059,19 +1120,48 @@ function SiteHeader({ authUser, logout }) {
             <p className="brand-subtitle">Fine Dining, Delivery & Celebration House</p>
           </div>
         </a>
-        <div className="nav-links">
-          <a href="#/">Home</a>
-          <a href="#/menu">Menu</a>
-          <a href="#reservation">Book Table</a>
+        <button
+          aria-controls="site-navigation"
+          aria-expanded={isMobileNavOpen}
+          aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          className={`nav-toggle ${isMobileNavOpen ? 'is-open' : ''}`}
+          type="button"
+          onClick={() => setIsMobileNavOpen((current) => !current)}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <div className={`nav-links ${isMobileNavOpen ? 'is-open' : ''}`} id="site-navigation">
+          <a href="#/" onClick={() => setIsMobileNavOpen(false)}>
+            Home
+          </a>
+          <a href="#/menu" onClick={() => setIsMobileNavOpen(false)}>
+            Menu
+          </a>
+          <a href="#reservation" onClick={() => setIsMobileNavOpen(false)}>
+            Book Table
+          </a>
           {authUser ? (
             <>
-              <a href="#my-activity">My Account</a>
-              <button className="nav-button" type="button" onClick={logout}>
+              <a href="#my-activity" onClick={() => setIsMobileNavOpen(false)}>
+                My Account
+              </a>
+              <button
+                className="nav-button"
+                type="button"
+                onClick={() => {
+                  setIsMobileNavOpen(false);
+                  logout();
+                }}
+              >
                 Logout
               </button>
             </>
           ) : (
-            <a href="#/auth">Login / Register</a>
+            <a href="#/auth" onClick={() => setIsMobileNavOpen(false)}>
+              Login / Register
+            </a>
           )}
         </div>
       </nav>
@@ -1081,6 +1171,7 @@ function SiteHeader({ authUser, logout }) {
 
 function HomePage({
   authUser,
+  availabilityMessage,
   bookingMessage,
   featuredMenuItems,
   heroBooking,
@@ -1089,6 +1180,7 @@ function HomePage({
   setReservationBooking,
   activeHeroSlide,
   handleChange,
+  handleAvailabilityCheck,
   handleBookingSubmit,
   handleProfileSubmit,
   isSubmitting,
@@ -1127,7 +1219,7 @@ function HomePage({
                     </div>
                   </section>
 
-                  <form className="booking-card booking-card-floating" onSubmit={(event) => handleBookingSubmit(event, heroBooking, 'Hero')}>
+                  <form className="booking-card booking-card-floating" onSubmit={handleAvailabilityCheck}>
                     <h2>Reserve in seconds</h2>
                     {!authUser && <p className="lock-note">Login required before table booking.</p>}
                     <fieldset className="form-lock" disabled={!authUser || isSubmitting}>
@@ -1155,6 +1247,12 @@ function HomePage({
                         Check Availability
                       </button>
                     </fieldset>
+                    {availabilityMessage && <p className="confirmation-message availability-message">{availabilityMessage}</p>}
+                    {authUser && (
+                      <a className="inline-auth-link" href="#reservation">
+                        Continue to booking form
+                      </a>
+                    )}
                     {!authUser && (
                       <a className="inline-auth-link" href="#/auth">
                         Go to login or register
@@ -1206,6 +1304,21 @@ function HomePage({
                 <a className="text-link" href={service.title === 'Dine In' ? '#reservation' : '#/menu'}>
                   {service.title === 'Dine In' ? 'Reserve a table' : 'Browse delivery menu'}
                 </a>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="content-section booking-feature-section">
+          <div className="section-heading">
+            <p className="eyebrow">Booking Highlights</p>
+            <h2>Everything you need before you confirm a table.</h2>
+          </div>
+          <div className="booking-feature-grid">
+            {bookingFeatures.map((feature) => (
+              <article className="feature-card booking-feature-card" key={feature.title}>
+                <h3>{feature.title}</h3>
+                <p>{feature.detail}</p>
               </article>
             ))}
           </div>
@@ -2064,7 +2177,7 @@ function AccountSection({
             myBookings.map((booking) => (
               <div className="activity-item" key={booking.id}>
                 <strong>
-                  {booking.booking_date} at {booking.booking_time}
+                  {formatBookingDate(booking.booking_date)} at {formatBookingTime(booking.booking_time)}
                 </strong>
                 <p>{booking.guest_count} guests</p>
                 <p>{booking.special_request || 'No special request'}</p>
@@ -2146,9 +2259,9 @@ function getImageForItem(name) {
     'Tandoori Pomfret':
       'https://images.unsplash.com/photo-1559847844-5315695dadae?auto=format&fit=crop&w=1000&q=80',
     'Pasta Alfredo':
-      'https://images.unsplash.com/photo-1645112411341-6c4fd023882c?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1555949258-eb67b1ef0ceb?auto=format&fit=crop&w=1000&q=80',
     'Kolkata Chicken Biryani':
-      'https://images.unsplash.com/photo-1701579231347-6d98d48c5f2c?auto=format&fit=crop&w=1000&q=80',
+      'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=1000&q=80',
     'Butter Naan':
       'https://images.unsplash.com/photo-1601050690597-df0568f70950?auto=format&fit=crop&w=1000&q=80',
     'Baked Rosogolla':
@@ -2183,6 +2296,44 @@ function formatPaymentMethod(method) {
   }
 
   return 'Cash on Delivery';
+}
+
+function formatBookingDate(dateValue) {
+  const normalized = typeof dateValue === 'string' ? dateValue.split('T')[0] : dateValue;
+  const date = new Date(normalized);
+
+  if (Number.isNaN(date.getTime())) {
+    return String(dateValue);
+  }
+
+  return date.toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+function formatBookingTime(timeValue) {
+  const value = String(timeValue || '').slice(0, 5);
+
+  if (!value.includes(':')) {
+    return String(timeValue);
+  }
+
+  const [hours, minutes] = value.split(':').map(Number);
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return String(timeValue);
+  }
+
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+
+  return date.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 }
 
 export default App;
