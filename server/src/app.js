@@ -10,6 +10,11 @@ const CORS_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
   .map((origin) => origin.trim())
   .filter(Boolean);
 
+function getRequestPath(url = '/') {
+  const pathname = new URL(url, 'http://localhost').pathname;
+  return pathname.startsWith('/api') ? pathname : `/api${pathname}`;
+}
+
 function isAllowedOrigin(origin) {
   if (!origin) {
     return true;
@@ -157,17 +162,19 @@ async function authenticate(req) {
 }
 
 export async function handleRequest(req, res) {
+  const requestPath = getRequestPath(req.url);
+
   if (req.method === 'OPTIONS') {
     sendJson(req, res, 204, {});
     return;
   }
 
-  if (req.url === '/api/health' && req.method === 'GET') {
+  if (requestPath === '/api/health' && req.method === 'GET') {
     sendJson(req, res, 200, { status: 'ok', service: 'restu-booking-server' });
     return;
   }
 
-  if (req.url === '/api/payments/config' && req.method === 'GET') {
+  if (requestPath === '/api/payments/config' && req.method === 'GET') {
     sendJson(req, res, 200, {
       provider: 'razorpay',
       enabled: RAZORPAY_ENABLED,
@@ -176,7 +183,7 @@ export async function handleRequest(req, res) {
     return;
   }
 
-  if (req.url === '/api/auth/register' && req.method === 'POST') {
+  if (requestPath === '/api/auth/register' && req.method === 'POST') {
     try {
       const { name, email, password } = await readJsonBody(req);
 
@@ -216,7 +223,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/auth/login' && req.method === 'POST') {
+  if (requestPath === '/api/auth/login' && req.method === 'POST') {
     try {
       const { email, password } = await readJsonBody(req);
 
@@ -260,7 +267,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/auth/forgot-password' && req.method === 'POST') {
+  if (requestPath === '/api/auth/forgot-password' && req.method === 'POST') {
     try {
       const { email } = await readJsonBody(req);
 
@@ -300,7 +307,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/auth/reset-password' && req.method === 'POST') {
+  if (requestPath === '/api/auth/reset-password' && req.method === 'POST') {
     try {
       const { token, password } = await readJsonBody(req);
 
@@ -347,7 +354,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/auth/me' && req.method === 'GET') {
+  if (requestPath === '/api/auth/me' && req.method === 'GET') {
     try {
       const user = await authenticate(req);
       sendJson(req, res, 200, { user });
@@ -358,7 +365,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/auth/profile' && req.method === 'POST') {
+  if (requestPath === '/api/auth/profile' && req.method === 'POST') {
     try {
       const user = await authenticate(req);
       const { name, email } = await readJsonBody(req);
@@ -405,7 +412,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/my/bookings' && req.method === 'GET') {
+  if (requestPath === '/api/my/bookings' && req.method === 'GET') {
     try {
       const user = await authenticate(req);
       const result = await pool.query(
@@ -425,7 +432,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/my/deliveries' && req.method === 'GET') {
+  if (requestPath === '/api/my/deliveries' && req.method === 'GET') {
     try {
       const user = await authenticate(req);
       const result = await pool.query(
@@ -456,7 +463,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/bookings' && req.method === 'POST') {
+  if (requestPath === '/api/bookings' && req.method === 'POST') {
     try {
       const user = await authenticate(req);
       const { date, time, guests, request = '', source = 'website' } = await readJsonBody(req);
@@ -484,7 +491,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/payments/create-order' && req.method === 'POST') {
+  if (requestPath === '/api/payments/create-order' && req.method === 'POST') {
     try {
       await authenticate(req);
 
@@ -533,7 +540,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/payments/verify' && req.method === 'POST') {
+  if (requestPath === '/api/payments/verify' && req.method === 'POST') {
     try {
       const user = await authenticate(req);
 
@@ -589,7 +596,7 @@ export async function handleRequest(req, res) {
     }
   }
 
-  if (req.url === '/api/deliveries' && req.method === 'POST') {
+  if (requestPath === '/api/deliveries' && req.method === 'POST') {
     try {
       const user = await authenticate(req);
       const { name, phone, address, items, orderTotal = 0, paymentMethod = 'cod' } = await readJsonBody(req);
