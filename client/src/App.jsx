@@ -289,6 +289,8 @@ function getMenuItemAttributes(category, itemName) {
 function buildCartItem(section, item) {
   const price = parsePrice(item.price);
 
+  /*sss*/
+
   return {
     name: item.name,
     category: section.category,
