@@ -59,6 +59,9 @@ export async function initializeDatabase() {
       address TEXT NOT NULL,
       items TEXT NOT NULL,
       order_total NUMERIC(10,2) DEFAULT 0,
+      payment_method TEXT NOT NULL DEFAULT 'cod',
+      payment_status TEXT NOT NULL DEFAULT 'pending',
+      payment_reference TEXT DEFAULT '',
       status TEXT NOT NULL DEFAULT 'placed',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -67,5 +70,8 @@ export async function initializeDatabase() {
   await pool.query(`ALTER TABLE table_bookings ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;`);
   await pool.query(`ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS user_id BIGINT REFERENCES users(id) ON DELETE CASCADE;`);
   await pool.query(`ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS order_total NUMERIC(10,2) DEFAULT 0;`);
+  await pool.query(`ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cod';`);
+  await pool.query(`ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS payment_status TEXT NOT NULL DEFAULT 'pending';`);
+  await pool.query(`ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS payment_reference TEXT DEFAULT '';`);
   await pool.query(`ALTER TABLE delivery_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'placed';`);
 }

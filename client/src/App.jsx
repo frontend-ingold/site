@@ -216,6 +216,25 @@ const initialDelivery = {
   deliveryNotes: '',
 };
 const initialAuth = { name: '', email: '', password: '', confirmPassword: '', resetToken: '' };
+const initialProfile = { name: '', email: '' };
+const API_BASE_URL = 'https://restu-api.vercel.app';
+const paymentOptions = [
+  {
+    value: 'cod',
+    label: 'Cash on Delivery',
+    detail: 'Pay when your order arrives at your door.',
+  },
+  {
+    value: 'upi',
+    label: 'UPI',
+    detail: 'Google Pay, PhonePe, Paytm, BHIM and more.',
+  },
+  {
+    value: 'card',
+    label: 'Credit / Debit Card',
+    detail: 'Secure checkout powered by Razorpay.',
+  },
+];
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -339,12 +358,38 @@ function getPageFromHash() {
 }
 
 async function apiRequest(path, options = {}) {
-  const response = await fetch(path, options);
+  const normalizedPath = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const response = await fetch(normalizedPath, options);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.message || 'Request failed.');
   }
   return data;
+}
+
+function loadRazorpayScript() {
+  return new Promise((resolve, reject) => {
+    if (window.Razorpay) {
+      resolve(window.Razorpay);
+      return;
+    }
+
+    const existingScript = document.querySelector('script[data-razorpay-checkout="true"]');
+
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(window.Razorpay), { once: true });
+      existingScript.addEventListener('error', () => reject(new Error('Failed to load payment gateway.')), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.dataset.razorpayCheckout = 'true';
+    script.onload = () => resolve(window.Razorpay);
+    script.onerror = () => reject(new Error('Failed to load payment gateway.'));
+    document.body.appendChild(script);
+  });
 }
 
 function App() {
@@ -353,6 +398,7 @@ function App() {
   const [reservationBooking, setReservationBooking] = useState(initialBooking);
   const [deliveryForm, setDeliveryForm] = useState(initialDelivery);
   const [authForm, setAuthForm] = useState(initialAuth);
+  const [profileForm, setProfileForm] = useState(initialProfile);
   const [cart, setCart] = useState(() => {
     try {
       return normalizeStoredCart(JSON.parse(localStorage.getItem('restu_cart') || '[]'));
@@ -364,9 +410,11 @@ function App() {
   const [bookingMessage, setBookingMessage] = useState('');
   const [deliveryMessage, setDeliveryMessage] = useState('');
   const [authMessage, setAuthMessage] = useState('');
+  const [profileMessage, setProfileMessage] = useState('');
   const [forgotResetToken, setForgotResetToken] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthSubmitting, setIsAuthSubmitting] = useState(false);
+  const [isProfileSubmitting, setIsProfileSubmitting] = useState(false);
   const [activeHeroSlide, setActiveHeroSlide] = useState(0);
   const [authToken, setAuthToken] = useState(localStorage.getItem('restu_auth_token') || '');
   const [authUser, setAuthUser] = useState(null);
@@ -377,11 +425,35 @@ function App() {
   const [menuModalNotes, setMenuModalNotes] = useState('');
   const [cartPanelAnimated, setCartPanelAnimated] = useState(false);
   const [lastOrder, setLastOrder] = useState(null);
+  const [paymentConfig, setPaymentConfig] = useState({ enabled: false, keyId: '' });
 
   useEffect(() => {
     const handleHashChange = () => setPage(getPageFromHash());
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    apiRequest('/api/payments/config')
+      .then((config) => {
+        if (isMounted) {
+          setPaymentConfig({
+            enabled: Boolean(config.enabled && config.keyId),
+            keyId: config.keyId || '',
+          });
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setPaymentConfig({ enabled: false, keyId: '' });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -399,6 +471,7 @@ function App() {
   useEffect(() => {
     if (!authToken) {
       setAuthUser(null);
+      setProfileForm(initialProfile);
       setMyBookings([]);
       setMyDeliveries([]);
       return;
@@ -406,6 +479,17 @@ function App() {
 
     hydrateSession(authToken);
   }, [authToken]);
+
+  useEffect(() => {
+    if (!authUser) {
+      return;
+    }
+
+    setProfileForm({
+      name: authUser.name || '',
+      email: authUser.email || '',
+    });
+  }, [authUser]);
 
   useEffect(() => {
     localStorage.setItem('restu_cart', JSON.stringify(cart));
@@ -471,6 +555,39 @@ function App() {
 
     setMyBookings(bookingsData.bookings);
     setMyDeliveries(deliveriesData.deliveries);
+  }
+
+  async function handleProfileSubmit(event) {
+    event.preventDefault();
+
+    if (!authToken) {
+      setProfileMessage('Please log in again to update your profile.');
+      return;
+    }
+
+    try {
+      setIsProfileSubmitting(true);
+      setProfileMessage('');
+
+      const data = await apiRequest('/api/auth/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          name: profileForm.name,
+          email: profileForm.email,
+        }),
+      });
+
+      setAuthUser(data.user);
+      setProfileMessage('Profile updated successfully.');
+    } catch (error) {
+      setProfileMessage(error.message);
+    } finally {
+      setIsProfileSubmitting(false);
+    }
   }
 
   async function handleAuthSubmit(event) {
@@ -651,6 +768,115 @@ function App() {
     [cart],
   );
 
+  function getDeliveryPayload() {
+    return {
+      ...deliveryForm,
+      address: buildDeliveryAddress(deliveryForm),
+      items: cart,
+      orderTotal: cartTotal,
+      paymentMethod: deliveryForm.paymentMethod,
+    };
+  }
+
+  async function finalizeSuccessfulOrder(paymentReference = '') {
+    setDeliveryMessage(
+      deliveryForm.paymentMethod === 'cod'
+        ? `Order placed successfully for ${deliveryForm.name}.`
+        : `Payment successful and order placed for ${deliveryForm.name}.`,
+    );
+    setLastOrder({
+      customerName: deliveryForm.name,
+      phone: deliveryForm.phone,
+      address: buildDeliveryAddress(deliveryForm),
+      paymentMethod: deliveryForm.paymentMethod,
+      paymentReference,
+      deliveryNotes: deliveryForm.deliveryNotes,
+      items: cart,
+      total: cartTotal,
+    });
+    setDeliveryForm(initialDelivery);
+    setCart([]);
+    await refreshAccountData();
+    window.location.hash = '#/order-success';
+  }
+
+  async function startGatewayPayment() {
+    if (!paymentConfig.enabled) {
+      throw new Error('Online payments are not configured yet. Please use Cash on Delivery.');
+    }
+
+    if (!deliveryForm.name || !deliveryForm.phone || !buildDeliveryAddress(deliveryForm)) {
+      throw new Error('Please complete your delivery details before paying online.');
+    }
+
+    const Razorpay = await loadRazorpayScript();
+    const paymentOrder = await apiRequest('/api/payments/create-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${authToken}`,
+      },
+      body: JSON.stringify({
+        amount: cartTotal,
+        receipt: `restu_${Date.now()}`,
+      }),
+    });
+
+    await new Promise((resolve, reject) => {
+      const razorpay = new Razorpay({
+        key: paymentOrder.keyId,
+        amount: paymentOrder.order.amount,
+        currency: paymentOrder.order.currency,
+        name: 'Saffron Table',
+        description: 'Food delivery order',
+        order_id: paymentOrder.order.id,
+        prefill: {
+          name: deliveryForm.name,
+          email: authUser?.email || '',
+          contact: deliveryForm.phone,
+        },
+        notes: {
+          address: buildDeliveryAddress(deliveryForm),
+          paymentMethod: deliveryForm.paymentMethod,
+        },
+        theme: {
+          color: '#ab3f2d',
+        },
+        handler: async (response) => {
+          try {
+            await apiRequest('/api/payments/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${authToken}`,
+              },
+              body: JSON.stringify({
+                ...getDeliveryPayload(),
+                razorpayOrderId: response.razorpay_order_id,
+                razorpayPaymentId: response.razorpay_payment_id,
+                razorpaySignature: response.razorpay_signature,
+              }),
+            });
+
+            await finalizeSuccessfulOrder(response.razorpay_payment_id);
+            resolve();
+          } catch (error) {
+            reject(error);
+          }
+        },
+        modal: {
+          ondismiss: () => reject(new Error('Payment window was closed before completion.')),
+        },
+      });
+
+      razorpay.on('payment.failed', (event) => {
+        reject(new Error(event.error?.description || 'Online payment failed.'));
+      });
+
+      razorpay.open();
+    });
+  }
+
   async function handleBookingSubmit(event, booking, source) {
     event.preventDefault();
 
@@ -714,34 +940,21 @@ function App() {
         throw new Error('Your cart is empty.');
       }
 
-      await apiRequest('/api/deliveries', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          ...deliveryForm,
-          address: buildDeliveryAddress(deliveryForm),
-          items: cart,
-          orderTotal: cartTotal,
-        }),
-      });
+      if (deliveryForm.paymentMethod === 'cod') {
+        await apiRequest('/api/deliveries', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(getDeliveryPayload()),
+        });
 
-      setDeliveryMessage(`Order placed successfully for ${deliveryForm.name}.`);
-      setLastOrder({
-        customerName: deliveryForm.name,
-        phone: deliveryForm.phone,
-        address: buildDeliveryAddress(deliveryForm),
-        paymentMethod: deliveryForm.paymentMethod,
-        deliveryNotes: deliveryForm.deliveryNotes,
-        items: cart,
-        total: cartTotal,
-      });
-      setDeliveryForm(initialDelivery);
-      setCart([]);
-      await refreshAccountData();
-      window.location.hash = '#/order-success';
+        await finalizeSuccessfulOrder();
+        return;
+      }
+
+      await startGatewayPayment();
     } catch (error) {
       setDeliveryMessage(error.message);
     } finally {
@@ -783,6 +996,7 @@ function App() {
           handleChange={handleChange}
           handleDeliverySubmit={handleDeliverySubmit}
           isSubmitting={isSubmitting}
+          paymentConfig={paymentConfig}
           removeCartItem={removeCartItem}
           setDeliveryForm={setDeliveryForm}
           updateCartQuantity={updateCartQuantity}
@@ -817,9 +1031,14 @@ function App() {
           activeHeroSlide={activeHeroSlide}
           handleChange={handleChange}
           handleBookingSubmit={handleBookingSubmit}
+          handleProfileSubmit={handleProfileSubmit}
           isSubmitting={isSubmitting}
+          isProfileSubmitting={isProfileSubmitting}
           myBookings={myBookings}
           myDeliveries={myDeliveries}
+          profileForm={profileForm}
+          profileMessage={profileMessage}
+          setProfileForm={setProfileForm}
         />
       )}
       <SiteFooter authUser={authUser} />
@@ -869,9 +1088,14 @@ function HomePage({
   activeHeroSlide,
   handleChange,
   handleBookingSubmit,
+  handleProfileSubmit,
   isSubmitting,
+  isProfileSubmitting,
   myBookings,
   myDeliveries,
+  profileForm,
+  profileMessage,
+  setProfileForm,
 }) {
   return (
     <>
@@ -953,7 +1177,19 @@ function HomePage({
       </section>
 
       <main>
-        {authUser && <AccountSection authUser={authUser} myBookings={myBookings} myDeliveries={myDeliveries} />}
+        {authUser && (
+          <AccountSection
+            authUser={authUser}
+            handleChange={handleChange}
+            handleProfileSubmit={handleProfileSubmit}
+            isProfileSubmitting={isProfileSubmitting}
+            myBookings={myBookings}
+            myDeliveries={myDeliveries}
+            profileForm={profileForm}
+            profileMessage={profileMessage}
+            setProfileForm={setProfileForm}
+          />
+        )}
 
         <section className="content-section service-section">
           <div className="section-heading">
@@ -1339,6 +1575,7 @@ function CheckoutPage({
   handleChange,
   handleDeliverySubmit,
   isSubmitting,
+  paymentConfig,
   removeCartItem,
   setDeliveryForm,
   updateCartQuantity,
@@ -1424,28 +1661,46 @@ function CheckoutPage({
               />
             </label>
             <div className="full-width payment-section">
-              <span className="payment-title">Payment Method</span>
+              <div className="payment-section-head">
+                <span className="payment-title">Payment Method</span>
+                <span className="payment-helper">
+                  {paymentConfig.enabled
+                    ? 'Secure online checkout is available for UPI and cards.'
+                    : 'Online payments will unlock after Razorpay keys are configured on the server.'}
+                </span>
+              </div>
               <div className="payment-options">
-                {[
-                  ['cod', 'Cash on Delivery'],
-                  ['upi', 'UPI'],
-                  ['card', 'Credit / Debit Card'],
-                ].map(([value, label]) => (
-                  <label className={`payment-option ${deliveryForm.paymentMethod === value ? 'is-selected' : ''}`} key={value}>
+                {paymentOptions.map((option) => (
+                  <label
+                    className={`payment-option ${deliveryForm.paymentMethod === option.value ? 'is-selected' : ''} ${
+                      option.value !== 'cod' && !paymentConfig.enabled ? 'is-disabled' : ''
+                    }`}
+                    key={option.value}
+                  >
                     <input
-                      checked={deliveryForm.paymentMethod === value}
+                      checked={deliveryForm.paymentMethod === option.value}
+                      disabled={option.value !== 'cod' && !paymentConfig.enabled}
                       name="paymentMethod"
                       onChange={handleChange(setDeliveryForm)}
                       type="radio"
-                      value={value}
+                      value={option.value}
                     />
-                    <span>{label}</span>
+                    <div className="payment-option-copy">
+                      <span className="payment-option-label">{option.label}</span>
+                      <span className="payment-option-detail">{option.detail}</span>
+                    </div>
                   </label>
                 ))}
               </div>
+              {deliveryForm.paymentMethod !== 'cod' && paymentConfig.enabled && (
+                <div className="payment-gateway-note">
+                  <strong>Razorpay checkout</strong>
+                  <span>Your delivery order will be confirmed immediately after payment verification.</span>
+                </div>
+              )}
             </div>
             <button className="button-primary wide-button" type="submit">
-              Place Order
+              {deliveryForm.paymentMethod === 'cod' ? 'Place Order' : `Pay ${formatCurrency(cartTotal)} & Place Order`}
             </button>
           </fieldset>
           {!authUser && (
@@ -1714,12 +1969,89 @@ function AuthPage({
   );
 }
 
-function AccountSection({ authUser, myBookings, myDeliveries }) {
+function AccountSection({
+  authUser,
+  handleChange,
+  handleProfileSubmit,
+  isProfileSubmitting,
+  myBookings,
+  myDeliveries,
+  profileForm,
+  profileMessage,
+  setProfileForm,
+}) {
+  const totalGuestsBooked = myBookings.reduce((sum, booking) => sum + (Number.parseInt(booking.guest_count, 10) || 0), 0);
+  const totalDeliverySpend = myDeliveries.reduce((sum, delivery) => sum + (Number(delivery.order_total) || 0), 0);
+
   return (
     <section className="content-section account-section" id="my-activity">
       <div className="section-heading">
         <p className="eyebrow">My Account</p>
-        <h2>{authUser.name}, your bookings and delivery requests are now active.</h2>
+        <h2>{authUser.name}, your profile, bookings, and delivery activity are all in one place.</h2>
+      </div>
+      <div className="account-overview-grid">
+        <article className="account-card profile-card">
+          <div className="profile-card-head">
+            <div className="profile-avatar" aria-hidden="true">
+              {authUser.name?.slice(0, 1).toUpperCase() || 'U'}
+            </div>
+            <div>
+              <p className="eyebrow">Profile</p>
+              <h3>{authUser.name}</h3>
+              <p className="profile-meta">{authUser.email}</p>
+            </div>
+          </div>
+          <form className="profile-form" onSubmit={handleProfileSubmit}>
+            <label>
+              Full Name
+              <input name="name" value={profileForm.name} onChange={handleChange(setProfileForm)} />
+            </label>
+            <label>
+              Email Address
+              <input name="email" type="email" value={profileForm.email} onChange={handleChange(setProfileForm)} />
+            </label>
+            <button className="button-primary profile-save-button" type="submit" disabled={isProfileSubmitting}>
+              {isProfileSubmitting ? 'Saving...' : 'Save Profile'}
+            </button>
+            {profileMessage && <p className="confirmation-message profile-message">{profileMessage}</p>}
+          </form>
+          <div className="profile-details">
+            <div className="profile-detail-row">
+              <span>Member Since</span>
+              <strong>{new Date(authUser.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong>
+            </div>
+            <div className="profile-detail-row">
+              <span>Saved Orders</span>
+              <strong>{myDeliveries.length}</strong>
+            </div>
+            <div className="profile-detail-row">
+              <span>Reservations</span>
+              <strong>{myBookings.length}</strong>
+            </div>
+          </div>
+        </article>
+
+        <article className="account-card profile-stats-card">
+          <p className="eyebrow">Account Snapshot</p>
+          <div className="profile-stats-grid">
+            <div className="profile-stat">
+              <strong>{myBookings.length}</strong>
+              <span>Table bookings</span>
+            </div>
+            <div className="profile-stat">
+              <strong>{myDeliveries.length}</strong>
+              <span>Delivery orders</span>
+            </div>
+            <div className="profile-stat">
+              <strong>{totalGuestsBooked}</strong>
+              <span>Total guests hosted</span>
+            </div>
+            <div className="profile-stat">
+              <strong>{formatCurrency(totalDeliverySpend)}</strong>
+              <span>Total delivery spend</span>
+            </div>
+          </div>
+        </article>
       </div>
       <div className="account-grid">
         <article className="account-card">
@@ -1749,7 +2081,9 @@ function AccountSection({ authUser, myBookings, myDeliveries }) {
                 <p>{delivery.phone}</p>
                 <p>{formatDeliveryItems(delivery.items)}</p>
                 <p>
-                  {delivery.status || 'placed'}
+                  {(delivery.status || 'placed').toUpperCase()}
+                  {delivery.payment_method ? ` | ${formatPaymentMethod(delivery.payment_method)}` : ''}
+                  {delivery.payment_status ? ` | ${delivery.payment_status}` : ''}
                   {delivery.order_total ? ` | ${formatCurrency(Number(delivery.order_total))}` : ''}
                 </p>
               </div>
@@ -1840,6 +2174,10 @@ function formatPaymentMethod(method) {
 
   if (method === 'card') {
     return 'Credit / Debit Card';
+  }
+
+  if (method === 'online') {
+    return 'Online Payment';
   }
 
   return 'Cash on Delivery';

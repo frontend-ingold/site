@@ -4,14 +4,48 @@ import { comparePassword, extractBearerToken, hashPassword, signToken, verifyTok
 import { initializeDatabase, pool } from './db.js';
 
 const PORT = process.env.PORT || 5000;
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || '';
+const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || '';
+const RAZORPAY_ENABLED = Boolean(RAZORPAY_KEY_ID && RAZORPAY_KEY_SECRET);
+const CORS_ALLOWED_ORIGINS = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
-function sendJson(res, statusCode, payload) {
-  res.writeHead(statusCode, {
+function isAllowedOrigin(origin) {
+  if (!origin) {
+    return true;
+  }
+
+  if (CORS_ALLOWED_ORIGINS.includes(origin)) {
+    return true;
+  }
+
+  if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+    return true;
+  }
+
+  if (/^https:\/\/.+\.vercel\.app$/.test(origin)) {
+    return true;
+  }
+
+  return false;
+}
+
+function getCorsHeaders(req) {
+  const origin = req.headers.origin || '';
+
+  return {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  });
+    'Access-Control-Allow-Origin': isAllowedOrigin(origin) ? origin || '*' : 'null',
+    Vary: 'Origin',
+  };
+}
+
+function sendJson(req, res, statusCode, payload) {
+  res.writeHead(statusCode, getCorsHeaders(req));
   res.end(JSON.stringify(payload));
 }
 
@@ -35,6 +69,78 @@ function readJsonBody(req) {
   });
 }
 
+function buildBasicAuthHeader(keyId, keySecret) {
+  return `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
+}
+
+function verifyRazorpaySignature(orderId, paymentId, signature) {
+  const expectedSignature = crypto
+    .createHmac('sha256', RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
+
+  return expectedSignature === signature;
+}
+
+async function createDeliveryRecord({
+  userId,
+  name,
+  phone,
+  address,
+  items,
+  orderTotal,
+  paymentMethod,
+  paymentStatus,
+  paymentReference,
+  status,
+}) {
+  const serializedItems = Array.isArray(items) ? JSON.stringify(items) : items;
+
+  const result = await pool.query(
+    `
+      INSERT INTO delivery_requests (
+        user_id,
+        customer_name,
+        phone,
+        address,
+        items,
+        order_total,
+        payment_method,
+        payment_status,
+        payment_reference,
+        status
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING
+        id,
+        customer_name,
+        phone,
+        address,
+        items,
+        order_total,
+        payment_method,
+        payment_status,
+        payment_reference,
+        status,
+        created_at;
+    `,
+    [
+      userId,
+      name,
+      phone,
+      address,
+      serializedItems,
+      Number(orderTotal) || 0,
+      paymentMethod,
+      paymentStatus,
+      paymentReference,
+      status,
+    ],
+  );
+
+  return result.rows[0];
+}
+
 async function authenticate(req) {
   const token = extractBearerToken(req.headers.authorization);
 
@@ -54,12 +160,21 @@ async function authenticate(req) {
 
 const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
-    sendJson(res, 204, {});
+    sendJson(req, res, 204, {});
     return;
   }
 
   if (req.url === '/api/health' && req.method === 'GET') {
-    sendJson(res, 200, { status: 'ok', service: 'restu-booking-server' });
+    sendJson(req, res, 200, { status: 'ok', service: 'restu-booking-server' });
+    return;
+  }
+
+  if (req.url === '/api/payments/config' && req.method === 'GET') {
+    sendJson(req, res, 200, {
+      provider: 'razorpay',
+      enabled: RAZORPAY_ENABLED,
+      keyId: RAZORPAY_ENABLED ? RAZORPAY_KEY_ID : '',
+    });
     return;
   }
 
@@ -68,7 +183,7 @@ const server = http.createServer(async (req, res) => {
       const { name, email, password } = await readJsonBody(req);
 
       if (!name || !email || !password) {
-        sendJson(res, 400, { message: 'Name, email, and password are required.' });
+        sendJson(req, res, 400, { message: 'Name, email, and password are required.' });
         return;
       }
 
@@ -76,7 +191,7 @@ const server = http.createServer(async (req, res) => {
       const existing = await pool.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
 
       if (existing.rowCount > 0) {
-        sendJson(res, 409, { message: 'An account with this email already exists.' });
+        sendJson(req, res, 409, { message: 'An account with this email already exists.' });
         return;
       }
 
@@ -91,14 +206,14 @@ const server = http.createServer(async (req, res) => {
       );
 
       const user = result.rows[0];
-      sendJson(res, 201, {
+      sendJson(req, res, 201, {
         message: 'Registration successful.',
         token: signToken(user),
         user,
       });
       return;
     } catch (error) {
-      sendJson(res, 500, { message: 'Failed to register user.', error: error.message });
+      sendJson(req, res, 500, { message: 'Failed to register user.', error: error.message });
       return;
     }
   }
@@ -108,7 +223,7 @@ const server = http.createServer(async (req, res) => {
       const { email, password } = await readJsonBody(req);
 
       if (!email || !password) {
-        sendJson(res, 400, { message: 'Email and password are required.' });
+        sendJson(req, res, 400, { message: 'Email and password are required.' });
         return;
       }
 
@@ -118,7 +233,7 @@ const server = http.createServer(async (req, res) => {
       );
 
       if (result.rowCount === 0) {
-        sendJson(res, 401, { message: 'Invalid email or password.' });
+        sendJson(req, res, 401, { message: 'Invalid email or password.' });
         return;
       }
 
@@ -126,11 +241,11 @@ const server = http.createServer(async (req, res) => {
       const isValid = await comparePassword(password, user.password_hash);
 
       if (!isValid) {
-        sendJson(res, 401, { message: 'Invalid email or password.' });
+        sendJson(req, res, 401, { message: 'Invalid email or password.' });
         return;
       }
 
-      sendJson(res, 200, {
+      sendJson(req, res, 200, {
         message: 'Login successful.',
         token: signToken(user),
         user: {
@@ -142,7 +257,7 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     } catch (error) {
-      sendJson(res, 500, { message: 'Failed to log in.', error: error.message });
+      sendJson(req, res, 500, { message: 'Failed to log in.', error: error.message });
       return;
     }
   }
@@ -152,14 +267,14 @@ const server = http.createServer(async (req, res) => {
       const { email } = await readJsonBody(req);
 
       if (!email) {
-        sendJson(res, 400, { message: 'Email is required.' });
+        sendJson(req, res, 400, { message: 'Email is required.' });
         return;
       }
 
       const result = await pool.query('SELECT id FROM users WHERE email = $1', [email.trim().toLowerCase()]);
 
       if (result.rowCount === 0) {
-        sendJson(res, 200, { message: 'If the account exists, a reset code has been created.' });
+        sendJson(req, res, 200, { message: 'If the account exists, a reset code has been created.' });
         return;
       }
 
@@ -176,13 +291,13 @@ const server = http.createServer(async (req, res) => {
         [userId, resetToken, expiresAt],
       );
 
-      sendJson(res, 200, {
+      sendJson(req, res, 200, {
         message: 'Reset code created successfully.',
         resetToken,
       });
       return;
     } catch (error) {
-      sendJson(res, 500, { message: 'Failed to create reset token.', error: error.message });
+      sendJson(req, res, 500, { message: 'Failed to create reset token.', error: error.message });
       return;
     }
   }
@@ -192,7 +307,7 @@ const server = http.createServer(async (req, res) => {
       const { token, password } = await readJsonBody(req);
 
       if (!token || !password) {
-        sendJson(res, 400, { message: 'Reset code and new password are required.' });
+        sendJson(req, res, 400, { message: 'Reset code and new password are required.' });
         return;
       }
 
@@ -206,19 +321,19 @@ const server = http.createServer(async (req, res) => {
       );
 
       if (result.rowCount === 0) {
-        sendJson(res, 404, { message: 'Reset code not found.' });
+        sendJson(req, res, 404, { message: 'Reset code not found.' });
         return;
       }
 
       const reset = result.rows[0];
 
       if (reset.used_at) {
-        sendJson(res, 400, { message: 'Reset code has already been used.' });
+        sendJson(req, res, 400, { message: 'Reset code has already been used.' });
         return;
       }
 
       if (new Date(reset.expires_at).getTime() < Date.now()) {
-        sendJson(res, 400, { message: 'Reset code has expired.' });
+        sendJson(req, res, 400, { message: 'Reset code has expired.' });
         return;
       }
 
@@ -226,10 +341,10 @@ const server = http.createServer(async (req, res) => {
       await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [passwordHash, reset.user_id]);
       await pool.query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [reset.id]);
 
-      sendJson(res, 200, { message: 'Password reset successful.' });
+      sendJson(req, res, 200, { message: 'Password reset successful.' });
       return;
     } catch (error) {
-      sendJson(res, 500, { message: 'Failed to reset password.', error: error.message });
+      sendJson(req, res, 500, { message: 'Failed to reset password.', error: error.message });
       return;
     }
   }
@@ -237,10 +352,57 @@ const server = http.createServer(async (req, res) => {
   if (req.url === '/api/auth/me' && req.method === 'GET') {
     try {
       const user = await authenticate(req);
-      sendJson(res, 200, { user });
+      sendJson(req, res, 200, { user });
       return;
     } catch (error) {
-      sendJson(res, 401, { message: error.message });
+      sendJson(req, res, 401, { message: error.message });
+      return;
+    }
+  }
+
+  if (req.url === '/api/auth/profile' && req.method === 'POST') {
+    try {
+      const user = await authenticate(req);
+      const { name, email } = await readJsonBody(req);
+
+      if (!name || !email) {
+        sendJson(req, res, 400, { message: 'Name and email are required.' });
+        return;
+      }
+
+      const normalizedEmail = email.trim().toLowerCase();
+      const trimmedName = name.trim();
+
+      if (!trimmedName) {
+        sendJson(req, res, 400, { message: 'Name cannot be empty.' });
+        return;
+      }
+
+      const existing = await pool.query('SELECT id FROM users WHERE email = $1 AND id <> $2', [normalizedEmail, user.id]);
+
+      if (existing.rowCount > 0) {
+        sendJson(req, res, 409, { message: 'Another account already uses this email.' });
+        return;
+      }
+
+      const result = await pool.query(
+        `
+          UPDATE users
+          SET name = $1, email = $2
+          WHERE id = $3
+          RETURNING id, name, email, created_at;
+        `,
+        [trimmedName, normalizedEmail, user.id],
+      );
+
+      sendJson(req, res, 200, {
+        message: 'Profile updated successfully.',
+        user: result.rows[0],
+      });
+      return;
+    } catch (error) {
+      const status = error.message === 'Authentication required.' || error.message === 'User not found.' ? 401 : 500;
+      sendJson(req, res, status, { message: status === 401 ? error.message : 'Failed to update profile.', error: error.message });
       return;
     }
   }
@@ -257,10 +419,10 @@ const server = http.createServer(async (req, res) => {
         `,
         [user.id],
       );
-      sendJson(res, 200, { bookings: result.rows });
+      sendJson(req, res, 200, { bookings: result.rows });
       return;
     } catch (error) {
-      sendJson(res, 401, { message: error.message });
+      sendJson(req, res, 401, { message: error.message });
       return;
     }
   }
@@ -270,17 +432,28 @@ const server = http.createServer(async (req, res) => {
       const user = await authenticate(req);
       const result = await pool.query(
         `
-          SELECT id, customer_name, phone, address, items, order_total, status, created_at
+          SELECT
+            id,
+            customer_name,
+            phone,
+            address,
+            items,
+            order_total,
+            payment_method,
+            payment_status,
+            payment_reference,
+            status,
+            created_at
           FROM delivery_requests
           WHERE user_id = $1
           ORDER BY created_at DESC
         `,
         [user.id],
       );
-      sendJson(res, 200, { deliveries: result.rows });
+      sendJson(req, res, 200, { deliveries: result.rows });
       return;
     } catch (error) {
-      sendJson(res, 401, { message: error.message });
+      sendJson(req, res, 401, { message: error.message });
       return;
     }
   }
@@ -291,7 +464,7 @@ const server = http.createServer(async (req, res) => {
       const { date, time, guests, request = '', source = 'website' } = await readJsonBody(req);
 
       if (!date || !time || !guests) {
-        sendJson(res, 400, { message: 'Date, time, and guests are required.' });
+        sendJson(req, res, 400, { message: 'Date, time, and guests are required.' });
         return;
       }
 
@@ -304,11 +477,116 @@ const server = http.createServer(async (req, res) => {
         [user.id, date, time, guests, request, source],
       );
 
-      sendJson(res, 201, { message: 'Booking created successfully.', booking: result.rows[0] });
+      sendJson(req, res, 201, { message: 'Booking created successfully.', booking: result.rows[0] });
       return;
     } catch (error) {
       const status = error.message === 'Authentication required.' || error.message === 'User not found.' ? 401 : 500;
-      sendJson(res, status, { message: status === 401 ? error.message : 'Failed to create booking.', error: error.message });
+      sendJson(req, res, status, { message: status === 401 ? error.message : 'Failed to create booking.', error: error.message });
+      return;
+    }
+  }
+
+  if (req.url === '/api/payments/create-order' && req.method === 'POST') {
+    try {
+      await authenticate(req);
+
+      if (!RAZORPAY_ENABLED) {
+        sendJson(req, res, 503, { message: 'Online payments are not configured yet.' });
+        return;
+      }
+
+      const { amount, receipt = `receipt_${Date.now()}` } = await readJsonBody(req);
+      const normalizedAmount = Math.round(Number(amount) * 100);
+
+      if (!normalizedAmount || normalizedAmount < 100) {
+        sendJson(req, res, 400, { message: 'A valid amount is required to create a payment order.' });
+        return;
+      }
+
+      const gatewayResponse = await fetch('https://api.razorpay.com/v1/orders', {
+        method: 'POST',
+        headers: {
+          Authorization: buildBasicAuthHeader(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          amount: normalizedAmount,
+          currency: 'INR',
+          receipt,
+          payment_capture: 1,
+        }),
+      });
+
+      const gatewayData = await gatewayResponse.json();
+
+      if (!gatewayResponse.ok) {
+        throw new Error(gatewayData.error?.description || 'Failed to create payment order.');
+      }
+
+      sendJson(req, res, 201, {
+        keyId: RAZORPAY_KEY_ID,
+        order: gatewayData,
+      });
+      return;
+    } catch (error) {
+      const status = error.message === 'Authentication required.' || error.message === 'User not found.' ? 401 : 500;
+      sendJson(req, res, status, { message: status === 401 ? error.message : 'Failed to initialize payment.', error: error.message });
+      return;
+    }
+  }
+
+  if (req.url === '/api/payments/verify' && req.method === 'POST') {
+    try {
+      const user = await authenticate(req);
+
+      if (!RAZORPAY_ENABLED) {
+        sendJson(req, res, 503, { message: 'Online payments are not configured yet.' });
+        return;
+      }
+
+      const {
+        name,
+        phone,
+        address,
+        items,
+        orderTotal = 0,
+        paymentMethod = 'online',
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature,
+      } = await readJsonBody(req);
+
+      if (!name || !phone || !address || !items || !razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
+        sendJson(req, res, 400, { message: 'Payment verification details are incomplete.' });
+        return;
+      }
+
+      if (!verifyRazorpaySignature(razorpayOrderId, razorpayPaymentId, razorpaySignature)) {
+        sendJson(req, res, 400, { message: 'Payment signature verification failed.' });
+        return;
+      }
+
+      const delivery = await createDeliveryRecord({
+        userId: user.id,
+        name,
+        phone,
+        address,
+        items,
+        orderTotal,
+        paymentMethod: paymentMethod === 'upi' ? 'upi' : 'card',
+        paymentStatus: 'paid',
+        paymentReference: razorpayPaymentId,
+        status: 'confirmed',
+      });
+
+      sendJson(req, res, 201, {
+        message: 'Payment verified and order placed successfully.',
+        delivery,
+      });
+      return;
+    } catch (error) {
+      const status = error.message === 'Authentication required.' || error.message === 'User not found.' ? 401 : 500;
+      sendJson(req, res, status, { message: status === 401 ? error.message : 'Failed to verify payment.', error: error.message });
       return;
     }
   }
@@ -316,29 +594,38 @@ const server = http.createServer(async (req, res) => {
   if (req.url === '/api/deliveries' && req.method === 'POST') {
     try {
       const user = await authenticate(req);
-      const { name, phone, address, items, orderTotal = 0 } = await readJsonBody(req);
+      const { name, phone, address, items, orderTotal = 0, paymentMethod = 'cod' } = await readJsonBody(req);
 
       if (!name || !phone || !address || !items) {
-        sendJson(res, 400, { message: 'Name, phone, address, and items are required.' });
+        sendJson(req, res, 400, { message: 'Name, phone, address, and items are required.' });
         return;
       }
 
-      const serializedItems = Array.isArray(items) ? JSON.stringify(items) : items;
+      const normalizedPaymentMethod = paymentMethod === 'cod' ? 'cod' : 'online';
 
-      const result = await pool.query(
-        `
-          INSERT INTO delivery_requests (user_id, customer_name, phone, address, items, order_total, status)
-          VALUES ($1, $2, $3, $4, $5, $6, $7)
-          RETURNING id, customer_name, phone, address, items, order_total, status, created_at;
-        `,
-        [user.id, name, phone, address, serializedItems, Number(orderTotal) || 0, 'placed'],
-      );
+      if (normalizedPaymentMethod !== 'cod') {
+        sendJson(req, res, 400, { message: 'Online payments must be completed through the payment gateway flow.' });
+        return;
+      }
 
-      sendJson(res, 201, { message: 'Delivery request created successfully.', delivery: result.rows[0] });
+      const delivery = await createDeliveryRecord({
+        userId: user.id,
+        name,
+        phone,
+        address,
+        items,
+        orderTotal,
+        paymentMethod: 'cod',
+        paymentStatus: 'pending',
+        paymentReference: '',
+        status: 'placed',
+      });
+
+      sendJson(req, res, 201, { message: 'Delivery request created successfully.', delivery });
       return;
     } catch (error) {
       const status = error.message === 'Authentication required.' || error.message === 'User not found.' ? 401 : 500;
-      sendJson(res, status, {
+      sendJson(req, res, status, {
         message: status === 401 ? error.message : 'Failed to create delivery request.',
         error: error.message,
       });
@@ -346,15 +633,19 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  sendJson(res, 404, {
+  sendJson(req, res, 404, {
     message: 'Route not found.',
     endpoints: [
       '/api/health',
+      '/api/payments/config',
+      '/api/payments/create-order',
+      '/api/payments/verify',
       '/api/auth/register',
       '/api/auth/login',
       '/api/auth/forgot-password',
       '/api/auth/reset-password',
       '/api/auth/me',
+      '/api/auth/profile',
       '/api/my/bookings',
       '/api/my/deliveries',
       '/api/bookings',
