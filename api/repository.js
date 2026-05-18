@@ -9,6 +9,8 @@ function keyValueRowsToObject(rows) {
 
 function mapProduct(row) {
   return {
+    slug: row.slug,
+    sku: row.sku,
     name: row.name,
     category: row.category,
     price: row.price,
@@ -19,7 +21,10 @@ function mapProduct(row) {
     available: row.available,
     sold: row.sold,
     accentColor: row.accent_color,
-    nutritionTags: row.nutrition_tags ?? []
+    nutritionTags: row.nutrition_tags ?? [],
+    shortDescription: row.short_description,
+    longDescription: row.long_description,
+    galleryImages: row.gallery_images ?? [row.image]
   };
 }
 

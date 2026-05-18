@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS categories (
 CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
   group_key TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  sku TEXT NOT NULL DEFAULT '',
   name TEXT NOT NULL,
   category TEXT NOT NULL,
   price TEXT NOT NULL,
@@ -63,6 +65,9 @@ CREATE TABLE IF NOT EXISTS products (
   sold INTEGER NOT NULL,
   accent_color TEXT NOT NULL DEFAULT '',
   nutrition_tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  short_description TEXT NOT NULL DEFAULT '',
+  long_description TEXT NOT NULL DEFAULT '',
+  gallery_images JSONB NOT NULL DEFAULT '[]'::jsonb,
   sort_order INTEGER NOT NULL
 );
 
@@ -95,4 +100,19 @@ ALTER TABLE products
 
 ALTER TABLE products
   ADD COLUMN IF NOT EXISTS nutrition_tags JSONB NOT NULL DEFAULT '[]'::jsonb;
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS slug TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS sku TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS short_description TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS long_description TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS gallery_images JSONB NOT NULL DEFAULT '[]'::jsonb;
 `;

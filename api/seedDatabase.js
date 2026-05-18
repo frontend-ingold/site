@@ -91,17 +91,55 @@ export async function seedDatabase({ closePool = false } = {}) {
 
     for (const [index, product] of seedData.products.entries()) {
       await client.query(
-        `INSERT INTO products(group_key, name, category, price, old_price, tag, image, rating, available, sold, accent_color, nutrition_tags, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        ['catalog', product.name, product.category, product.price, product.oldPrice, product.tag, product.image, product.rating, product.available, product.sold, product.accentColor ?? '', JSON.stringify(product.nutritionTags ?? []), index]
+        `INSERT INTO products(group_key, slug, sku, name, category, price, old_price, tag, image, rating, available, sold, accent_color, nutrition_tags, short_description, long_description, gallery_images, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+        [
+          'catalog',
+          product.slug,
+          product.sku ?? '',
+          product.name,
+          product.category,
+          product.price,
+          product.oldPrice,
+          product.tag,
+          product.image,
+          product.rating,
+          product.available,
+          product.sold,
+          product.accentColor ?? '',
+          JSON.stringify(product.nutritionTags ?? []),
+          product.shortDescription ?? '',
+          product.longDescription ?? '',
+          JSON.stringify(product.galleryImages ?? [product.image]),
+          index
+        ]
       );
     }
 
     for (const [index, product] of seedData.dealMonthProducts.entries()) {
       await client.query(
-        `INSERT INTO products(group_key, name, category, price, old_price, tag, image, rating, available, sold, accent_color, nutrition_tags, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
-        ['deal_month', product.name, product.category, product.price, product.oldPrice, product.tag, product.image, product.rating, product.available, product.sold, product.accentColor ?? '', JSON.stringify(product.nutritionTags ?? []), index]
+        `INSERT INTO products(group_key, slug, sku, name, category, price, old_price, tag, image, rating, available, sold, accent_color, nutrition_tags, short_description, long_description, gallery_images, sort_order)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)`,
+        [
+          'deal_month',
+          product.slug,
+          product.sku ?? '',
+          product.name,
+          product.category,
+          product.price,
+          product.oldPrice,
+          product.tag,
+          product.image,
+          product.rating,
+          product.available,
+          product.sold,
+          product.accentColor ?? '',
+          JSON.stringify(product.nutritionTags ?? []),
+          product.shortDescription ?? '',
+          product.longDescription ?? '',
+          JSON.stringify(product.galleryImages ?? [product.image]),
+          index
+        ]
       );
     }
 
