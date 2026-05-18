@@ -1,6 +1,81 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUp, Bookmark, ChevronDown, ChevronLeft, ChevronRight, Eye, Flame, Heart, Home, Phone, Repeat, Search, Settings, ShoppingCart, User } from 'lucide-react';
+import { ArrowUp, Bookmark, ChevronDown, ChevronLeft, ChevronRight, Eye, Flame, Grid2x2, Heart, Home, ListFilter, Phone, Repeat, Search, Settings, ShoppingCart, User } from 'lucide-react';
 import { getPageData } from './lib/api.js';
+
+const HOME_HASH = '#/';
+const PRODUCT_LIST_PREFIX = '#/product-category/';
+
+function slugifyCategory(value) {
+  return value.toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+function getProductListHash(categoryLabel) {
+  if (!categoryLabel || categoryLabel === 'All' || categoryLabel === 'All Categories') {
+    return `${PRODUCT_LIST_PREFIX}all`;
+  }
+
+  return `${PRODUCT_LIST_PREFIX}${slugifyCategory(categoryLabel)}`;
+}
+
+function isProductListRoute(hash) {
+  return hash.startsWith(PRODUCT_LIST_PREFIX) || hash === '#/products' || hash === '#products';
+}
+
+function getRouteCategorySlug(hash) {
+  if (hash === '#/products' || hash === '#products') {
+    return 'all';
+  }
+
+  return hash.startsWith(PRODUCT_LIST_PREFIX)
+    ? hash.slice(PRODUCT_LIST_PREFIX.length) || 'all'
+    : 'all';
+}
+
+function matchesArchiveCategory(product, categorySlug) {
+  if (categorySlug === 'all') {
+    return true;
+  }
+
+  const haystack = `${product.category} ${product.name}`.toLowerCase();
+  const categoryMatchers = {
+    fruits: ['fruit', 'apple', 'orange', 'grape'],
+    vegetable: ['vegetable', 'cauliflower', 'garlic'],
+    vegetables: ['vegetable', 'cauliflower', 'garlic'],
+    beverages: ['beverage', 'juice'],
+    dairy: ['dairy', 'milk', 'cheese'],
+    bakery: ['bakery', 'croissant', 'bread'],
+    seafood: ['seafood', 'salmon', 'carp', 'fish'],
+    'vegan-meat': ['vegan', 'healthy meals', 'salad'],
+    'vegan-meals': ['vegan', 'healthy meals', 'salad'],
+    'beer-and-liquor': ['beer', 'liquor']
+  };
+
+  const matchTerms = categoryMatchers[categorySlug] ?? [categorySlug.replace(/-/g, ' ')];
+  return matchTerms.some((term) => haystack.includes(term));
+}
+
+function getArchiveTitleFromSlug(categorySlug, categories) {
+  if (categorySlug === 'all') {
+    return 'All Products';
+  }
+
+  const categoryMatch = categories.find((category) => slugifyCategory(category.name) === categorySlug);
+  return categoryMatch?.name ?? categorySlug.replace(/-/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function getNavHref(label) {
+  const archiveLabels = ['Fruits', 'Vegetable', 'Seafood', 'Dairy', 'Bakery', 'Beverages', 'Beer & Liquor', 'Vegan Meat'];
+  return archiveLabels.includes(label) ? getProductListHash(label) : HOME_HASH;
+}
+
+function navigateToHash(nextHash) {
+  if (window.location.hash === nextHash) {
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    return;
+  }
+
+  window.location.hash = nextHash;
+}
 
 function Header({ header, heroSlides, navigation }) {
   const [scrolled, setScrolled] = useState(false);
@@ -48,7 +123,12 @@ function Header({ header, heroSlides, navigation }) {
       <header className="header">
         <div className="container header-main">
           <div className="logo">
-            <img src={heroSlides.logo} alt="FreshMart" />
+            <a href={HOME_HASH} onClick={(event) => {
+              event.preventDefault();
+              navigateToHash(HOME_HASH);
+            }}>
+              <img src={heroSlides.logo} alt="FreshMart" />
+            </a>
           </div>
           <div className="search-box">
             <div className="category-dropdown" ref={categoryDropdownRef}>
@@ -66,6 +146,7 @@ function Header({ header, heroSlides, navigation }) {
                       onClick={() => {
                         setSelectedCategory(category);
                         setCategoryMenuOpen(false);
+                        navigateToHash(getProductListHash(category));
                       }}
                     >
                       {category}
@@ -91,7 +172,13 @@ function Header({ header, heroSlides, navigation }) {
           <div className="category-links">
             {navigation.items.map((item) => (
               <div className={`nav-category-item ${item.columns ? 'has-mega-menu' : ''}`} key={item.label}>
-                <a className={item.columns ? 'has-arrow' : ''}>
+                <a
+                  className={item.columns ? 'has-arrow' : ''} href={getNavHref(item.label)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigateToHash(getNavHref(item.label));
+                  }}
+                >
                   {item.label}
                   {item.columns ? <ChevronDown size={14} /> : null}
                 </a>
@@ -202,11 +289,17 @@ function CategorySection({ section, categories }) {
       <div className="section-title"><h2>{section.title}</h2><a>{section.linkLabel}</a></div>
       <div className="category-grid">
         {categories.map((category) => (
-          <div className="category-card" key={category.name}>
+          <a
+            className="category-card" href={getProductListHash(category.name)} key={category.name}
+            onClick={(event) => {
+              event.preventDefault();
+              navigateToHash(getProductListHash(category.name));
+            }}
+          >
             <div className="cat-icon"><img src={category.image} alt={category.name} /></div>
             <h3>{category.name}</h3>
             <p>{category.count}</p>
-          </div>
+          </a>
         ))}
       </div>
     </section>
@@ -413,6 +506,230 @@ function ArticlesSection({ section, articles }) {
   );
 }
 
+function ProductListPage({ pageData, routeHash }) {
+  const { categories, products, dealMonthProducts, sections } = pageData;
+  const archiveMeta = sections.productList;
+  const archiveProducts = [...dealMonthProducts, ...products];
+  const routeCategorySlug = getRouteCategorySlug(routeHash);
+  const routeCategoryTitle = getArchiveTitleFromSlug(routeCategorySlug, categories);
+  const [sortBy, setSortBy] = useState(archiveMeta.sortOptions[0] ?? 'Default sorting');
+  const [visibleCount, setVisibleCount] = useState(archiveMeta.showOptions?.[0] ?? 12);
+  const [priceLimit, setPriceLimit] = useState(archiveMeta.priceRange?.max ?? 10);
+  const [pendingPriceLimit, setPendingPriceLimit] = useState(archiveMeta.priceRange?.max ?? 10);
+  const [selectedColors, setSelectedColors] = useState([]);
+  const [selectedNutrition, setSelectedNutrition] = useState([]);
+
+  useEffect(() => {
+    setPriceLimit(archiveMeta.priceRange?.max ?? 10);
+    setPendingPriceLimit(archiveMeta.priceRange?.max ?? 10);
+    setSelectedColors([]);
+    setSelectedNutrition([]);
+  }, [routeHash, archiveMeta.priceRange?.max]);
+
+  const routeProducts = archiveProducts.filter((product) => matchesArchiveCategory(product, routeCategorySlug));
+  const availableColors = Array.from(new Set(routeProducts.map((product) => product.accentColor).filter(Boolean)));
+  const availableNutrition = Array.from(new Set(routeProducts.flatMap((product) => product.nutritionTags ?? [])));
+
+  const filteredProducts = routeProducts.filter((product) => {
+    const numericPrice = Number(product.price.replace(/[^0-9.]/g, ''));
+    const matchesPrice = numericPrice <= priceLimit;
+    const matchesColor = selectedColors.length === 0 || selectedColors.includes(product.accentColor);
+    const matchesNutrition = selectedNutrition.length === 0 || selectedNutrition.every((tag) => (product.nutritionTags ?? []).includes(tag));
+    return matchesPrice && matchesColor && matchesNutrition;
+  });
+
+  const sortedProducts = [...filteredProducts].sort((left, right) => {
+    const leftPrice = Number(left.price.replace(/[^0-9.]/g, ''));
+    const rightPrice = Number(right.price.replace(/[^0-9.]/g, ''));
+
+    if (sortBy === 'Price: Low to High') {
+      return leftPrice - rightPrice;
+    }
+
+    if (sortBy === 'Price: High to Low') {
+      return rightPrice - leftPrice;
+    }
+
+    if (sortBy === 'Latest products') {
+      return 0;
+    }
+
+    return 0;
+  });
+
+  const visibleProducts = sortedProducts.slice(0, visibleCount);
+
+  const sidebarCategories = [
+    { name: 'All', count: archiveProducts.length },
+    ...categories.map((category) => ({ name: category.name, count: category.count }))
+  ];
+
+  const toggleFilterValue = (currentValues, nextValue, setter) => {
+    setter(
+      currentValues.includes(nextValue)
+        ? currentValues.filter((value) => value !== nextValue)
+        : [...currentValues, nextValue]
+    );
+  };
+
+  return (
+    <main className="product-archive-page">
+      <section className="container product-archive-hero reveal">
+        <div className="product-archive-breadcrumbs">
+          <a href={HOME_HASH} onClick={(event) => {
+            event.preventDefault();
+            navigateToHash(HOME_HASH);
+          }}>Home</a>
+          <span>/</span>
+          <span>{routeCategoryTitle}</span>
+        </div>
+        <div className="product-archive-heading">
+          <div>
+            <h1>{routeCategoryTitle}</h1>
+            <p>{archiveProducts.length} {archiveMeta.resultLabel}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="container section reveal">
+        <div className="product-archive-layout">
+          <aside className="product-archive-sidebar">
+            <div className="archive-sidebar-card">
+              <div className="archive-filter-header">
+                <strong>Filter :</strong>
+                <button
+                  type="button"
+                  className="archive-clear-btn"
+                  onClick={() => {
+                    setSelectedColors([]);
+                    setSelectedNutrition([]);
+                    setPriceLimit(archiveMeta.priceRange?.max ?? 10);
+                    setPendingPriceLimit(archiveMeta.priceRange?.max ?? 10);
+                  }}
+                >
+                  Clean All
+                </button>
+              </div>
+
+              <h3>{archiveMeta.sidebarTitle}</h3>
+              <div className="archive-category-list">
+                {sidebarCategories.map((category) => (
+                  <a
+                    key={category.name}
+                    href={getProductListHash(category.name)}
+                    className={`archive-category-item ${slugifyCategory(category.name) === routeCategorySlug ? 'is-active' : ''}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      navigateToHash(getProductListHash(category.name));
+                    }}
+                  >
+                    <span>{category.name}</span>
+                    <small>{category.count}</small>
+                  </a>
+                ))}
+              </div>
+
+              <div className="archive-filter-group">
+                <div className="archive-filter-title-row">
+                  <h4>Price</h4>
+                  <span>-</span>
+                </div>
+                <input
+                  className="archive-price-range"
+                  type="range"
+                  min={archiveMeta.priceRange?.min ?? 0}
+                  max={archiveMeta.priceRange?.max ?? 10}
+                  step="0.1"
+                  value={pendingPriceLimit}
+                  onChange={(event) => setPendingPriceLimit(Number(event.target.value))}
+                />
+                <div className="archive-price-actions">
+                  <button type="button" className="archive-apply-btn" onClick={() => setPriceLimit(pendingPriceLimit)}>Filter</button>
+                  <small>Price: ${archiveMeta.priceRange?.min ?? 0} - ${pendingPriceLimit.toFixed(2)}</small>
+                </div>
+              </div>
+
+              <div className="archive-filter-group">
+                <div className="archive-filter-title-row">
+                  <h4>Color</h4>
+                  <span>-</span>
+                </div>
+                <div className="archive-option-list">
+                  {availableColors.map((color) => (
+                    <label className="archive-option-item" key={color}>
+                      <span className={`archive-color-dot archive-color-${slugifyCategory(color)}`} />
+                      <input
+                        type="checkbox"
+                        checked={selectedColors.includes(color)}
+                        onChange={() => toggleFilterValue(selectedColors, color, setSelectedColors)}
+                      />
+                      <span>{color}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="archive-filter-group">
+                <div className="archive-filter-title-row">
+                  <h4>Nutrition</h4>
+                  <span>-</span>
+                </div>
+                <div className="archive-option-list archive-option-list-nutrition">
+                  {availableNutrition.map((tag) => (
+                    <label className="archive-option-item archive-checkbox-item" key={tag}>
+                      <input
+                        type="checkbox"
+                        checked={selectedNutrition.includes(tag)}
+                        onChange={() => toggleFilterValue(selectedNutrition, tag, setSelectedNutrition)}
+                      />
+                      <span>{tag}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="archive-sidebar-promo" style={{ backgroundImage: `linear-gradient(180deg, rgba(26, 58, 14, .18), rgba(26, 58, 14, .7)), url(${archiveMeta.promoImage})` }}>
+              <span>{archiveMeta.promoEyebrow}</span>
+              <h3>{archiveMeta.promoTitle}</h3>
+            </div>
+          </aside>
+
+          <div className="product-archive-content">
+            <div className="archive-toolbar">
+              <div className="archive-toolbar-left">
+                <ListFilter size={18} />
+                <span>Showing {visibleProducts.length} of {routeProducts.length} products</span>
+              </div>
+              <div className="archive-toolbar-right">
+                <select value={visibleCount} onChange={(event) => setVisibleCount(Number(event.target.value))}>
+                  {(archiveMeta.showOptions ?? [12]).map((option) => (
+                    <option key={option} value={option}>Show {option}</option>
+                  ))}
+                </select>
+                <div className="archive-toolbar-view">
+                  <button type="button" className="is-active" aria-label="Grid view"><Grid2x2 size={18} /></button>
+                </div>
+                <select value={sortBy} onChange={(event) => setSortBy(event.target.value)}>
+                  {archiveMeta.sortOptions.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="archive-product-grid">
+              {visibleProducts.map((product, index) => (
+                <ProductCard key={`${product.name}-${index}`} product={product} compact />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}
+
 function FloatingToolbar() {
   return (
     <div className="floating-toolbar">
@@ -443,38 +760,40 @@ function Footer({ footer, heroSlides }) {
 export default function App() {
   const [pageData, setPageData] = useState(null);
   const [pageError, setPageError] = useState('');
+  const [routeHash, setRouteHash] = useState(window.location.hash || HOME_HASH);
+
+  useEffect(() => {
+    if (!window.location.hash) {
+      window.location.replace(`${window.location.pathname}${window.location.search}${HOME_HASH}`);
+    }
+  }, []);
 
   useEffect(() => {
     let isActive = true;
 
-    const loadPageData = () => {
-      getPageData()
-        .then((response) => {
-          if (isActive) {
-            setPageData(response);
-            setPageError('');
-          }
-        })
-        .catch((error) => {
-          console.error('Failed to load API page data:', error);
-          if (isActive) {
-            setPageError('Failed to load page data from API.');
-          }
-        });
-    };
-
-    loadPageData();
-
-    const refreshInterval = import.meta.env.DEV
-      ? window.setInterval(loadPageData, 2000)
-      : null;
+    getPageData()
+      .then((response) => {
+        if (isActive) {
+          setPageData(response);
+          setPageError('');
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load API page data:', error);
+        if (isActive) {
+          setPageError('Failed to load page data from API.');
+        }
+      });
 
     return () => {
       isActive = false;
-      if (refreshInterval) {
-        window.clearInterval(refreshInterval);
-      }
     };
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => setRouteHash(window.location.hash || HOME_HASH);
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
   useEffect(() => {
@@ -489,13 +808,16 @@ export default function App() {
 
     elements.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
-  }, [pageData]);
+  }, [pageData, routeHash]);
 
   if (pageError) {
     return (
-      <div className="page-state">
-        <h2>API Error</h2>
-        <p>{pageError}</p>
+      <div className="page-state page-state-error">
+        <div className="page-state-panel">
+          <span className="page-state-badge">Connection Error</span>
+          <h2>API Error</h2>
+          <p>{pageError}</p>
+        </div>
       </div>
     );
   }
@@ -503,8 +825,22 @@ export default function App() {
   if (!pageData) {
     return (
       <div className="page-state">
-        <h2>Loading...</h2>
-        <p>Fetching page data from PostgreSQL API.</p>
+        <div className="page-state-backdrop page-state-backdrop-one" />
+        <div className="page-state-backdrop page-state-backdrop-two" />
+        <div className="page-state-panel page-state-panel-loading">
+          <span className="page-state-badge">FreshMart</span>
+          <div className="page-loader-orbit">
+            <span className="page-loader-ring page-loader-ring-one" />
+            <span className="page-loader-ring page-loader-ring-two" />
+            <span className="page-loader-core">
+              <img src="/wolmart-demo29/shop29-logo.png" alt="Wolmart" />
+            </span>
+          </div>
+          <h2>Loading marketplace</h2>
+          <div className="page-loader-progress">
+            <span />
+          </div>
+        </div>
       </div>
     );
   }
@@ -512,14 +848,20 @@ export default function App() {
   return (
     <>
       <Header header={pageData.header} heroSlides={pageData.heroSlides} navigation={pageData.navigation} />
-      <Hero hero={pageData.hero} heroSlides={pageData.heroSlides} />
-      <DealOfMonthSection dealMeta={pageData.sections.dealMonth} dealProducts={pageData.dealMonthProducts} heroSlides={pageData.heroSlides} />
-      <CategorySection section={pageData.sections.categories} categories={pageData.categories} />
-      <ProductsSection section={pageData.sections.weeklyDiscounts} products={pageData.products} />
-      <PromoBanner promo={pageData.sections.promoBanner} />
-      <ProductsSection section={pageData.sections.newArrivals} products={pageData.products.slice(3)} />
-      <VendorSection section={pageData.sections.vendors} vendors={pageData.vendors} />
-      <ArticlesSection section={pageData.sections.articles} articles={pageData.articles} />
+      {isProductListRoute(routeHash) ? (
+        <ProductListPage pageData={pageData} routeHash={routeHash} />
+      ) : (
+        <>
+          <Hero hero={pageData.hero} heroSlides={pageData.heroSlides} />
+          <DealOfMonthSection dealMeta={pageData.sections.dealMonth} dealProducts={pageData.dealMonthProducts} heroSlides={pageData.heroSlides} />
+          <CategorySection section={pageData.sections.categories} categories={pageData.categories} />
+          <ProductsSection section={pageData.sections.weeklyDiscounts} products={pageData.products} />
+          <PromoBanner promo={pageData.sections.promoBanner} />
+          <ProductsSection section={pageData.sections.newArrivals} products={pageData.products.slice(3)} />
+          <VendorSection section={pageData.sections.vendors} vendors={pageData.vendors} />
+          <ArticlesSection section={pageData.sections.articles} articles={pageData.articles} />
+        </>
+      )}
       <Footer footer={pageData.footer} heroSlides={pageData.heroSlides} />
       <FloatingToolbar />
     </>

@@ -1,6 +1,4 @@
-import seedData from './seedData.js';
-
-const isProduction = process.env.NODE_ENV === 'production';
+import { pool } from './db.js';
 
 function keyValueRowsToObject(rows) {
   return rows.reduce((accumulator, row) => {
@@ -19,16 +17,13 @@ function mapProduct(row) {
     image: row.image,
     rating: row.rating,
     available: row.available,
-    sold: row.sold
+    sold: row.sold,
+    accentColor: row.accent_color,
+    nutritionTags: row.nutrition_tags ?? []
   };
 }
 
 export async function getPageData() {
-  if (!isProduction) {
-    return structuredClone(seedData);
-  }
-
-  const { pool } = await import('./db.js');
   const [
     pageSettingsResult,
     heroAssetsResult,

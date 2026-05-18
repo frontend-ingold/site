@@ -169,6 +169,18 @@ const seedData = {
     articles: {
       title: 'Our Articles',
       linkLabel: 'All Products'
+    },
+    productList: {
+      title: 'Fruits',
+      breadcrumbCurrent: 'Fruits',
+      resultLabel: 'Products Found',
+      sidebarTitle: 'Browse Categories',
+      promoEyebrow: 'Fresh Picks',
+      promoTitle: 'Organic fruits for daily delivery',
+      promoImage: '/wolmart-demo29/shop29-banner-1.jpg',
+      sortOptions: ['Default sorting', 'Latest products', 'Price: Low to High', 'Price: High to Low'],
+      showOptions: [12, 9, 6],
+      priceRange: { min: 0, max: 10 }
     }
   },
   categories: [
@@ -182,20 +194,24 @@ const seedData = {
     { name: 'Fruits', image: '/wolmart-demo29/shop29-cat-6.jpg', count: '42 items' }
   ],
   products: [
-    { name: 'Cauliflower', category: 'Vegetable', price: '$2.15', oldPrice: '$2.65', tag: '19% OFF', image: '/wolmart-demo29/shop29-product-40-1-232x279.jpg', rating: 4, available: 175, sold: 1 },
-    { name: 'Red Apple', category: 'Fresh Fruit', price: '$3.40', oldPrice: '$4.10', tag: '17% OFF', image: '/wolmart-demo29/shop29-product-10-1-232x279.jpg', rating: 5, available: 140, sold: 12 },
-    { name: 'Fresh Milk', category: 'Dairy Product', price: '$1.95', oldPrice: '$2.45', tag: '20% OFF', image: '/wolmart-demo29/shop29-product-11-1-232x279.jpg', rating: 4, available: 96, sold: 18 },
-    { name: 'Croissant Pack', category: 'Bakery', price: '$5.25', oldPrice: '$6.10', tag: '14% OFF', image: '/wolmart-demo29/shop29-product-12-1-232x279.jpg', rating: 4, available: 64, sold: 7 },
-    { name: 'Fresh Salmon Fillet', category: 'Seafood', price: '$21.50', oldPrice: '$28.00', tag: '25% OFF', image: '/wolmart-demo29/shop29-product-13-1-232x279.jpg', rating: 5, available: 34, sold: 11 },
-    { name: 'Green Vegan Salad', category: 'Healthy Meals', price: '$9.40', oldPrice: '$13.20', tag: 'FRESH', image: '/wolmart-demo29/shop29-product-14-1-232x279.jpg', rating: 4, available: 41, sold: 9 },
-    { name: 'Natural Orange Juice', category: 'Beverage', price: '$4.99', oldPrice: '$7.99', tag: 'BEST', image: '/wolmart-demo29/shop29-product-15-1-1-232x279.jpg', rating: 5, available: 88, sold: 24 },
-    { name: 'Cheese Family Pack', category: 'Dairy Product', price: '$13.90', oldPrice: '$17.50', tag: 'DEAL', image: '/wolmart-demo29/shop29-product-16-3-232x279.jpg', rating: 4, available: 57, sold: 14 }
+    { name: 'Cauliflower', category: 'Vegetable', price: '$2.15', oldPrice: '$2.65', tag: '19% OFF', image: '/wolmart-demo29/shop29-product-40-1-232x279.jpg', rating: 4, available: 175, sold: 1, accentColor: 'green', nutritionTags: ['Low Calorie'] },
+    { name: 'Red Apple', category: 'Fresh Fruit', price: '$3.40', oldPrice: '$4.10', tag: '17% OFF', image: '/wolmart-demo29/shop29-product-10-1-232x279.jpg', rating: 5, available: 140, sold: 12, accentColor: 'red', nutritionTags: ['Low Fat'] },
+    { name: 'Fresh Milk', category: 'Dairy Product', price: '$1.95', oldPrice: '$2.45', tag: '20% OFF', image: '/wolmart-demo29/shop29-product-11-1-232x279.jpg', rating: 4, available: 96, sold: 18, accentColor: 'white', nutritionTags: ['Low Fat'] },
+    { name: 'Croissant Pack', category: 'Bakery', price: '$5.25', oldPrice: '$6.10', tag: '14% OFF', image: '/wolmart-demo29/shop29-product-12-1-232x279.jpg', rating: 4, available: 64, sold: 7, accentColor: 'yellow', nutritionTags: [] },
+    { name: 'Fresh Salmon Fillet', category: 'Seafood', price: '$21.50', oldPrice: '$28.00', tag: '25% OFF', image: '/wolmart-demo29/shop29-product-13-1-232x279.jpg', rating: 5, available: 34, sold: 11, accentColor: 'orange', nutritionTags: [] },
+    { name: 'Green Vegan Salad', category: 'Healthy Meals', price: '$9.40', oldPrice: '$13.20', tag: 'FRESH', image: '/wolmart-demo29/shop29-product-14-1-232x279.jpg', rating: 4, available: 41, sold: 9, accentColor: 'green', nutritionTags: ['Low Calorie', 'Low Fat'] },
+    { name: 'Natural Orange Juice', category: 'Beverage', price: '$4.99', oldPrice: '$7.99', tag: 'BEST', image: '/wolmart-demo29/shop29-product-15-1-1-232x279.jpg', rating: 5, available: 88, sold: 24, accentColor: 'orange', nutritionTags: [] },
+    { name: 'Cheese Family Pack', category: 'Dairy Product', price: '$13.90', oldPrice: '$17.50', tag: 'DEAL', image: '/wolmart-demo29/shop29-product-16-3-232x279.jpg', rating: 4, available: 57, sold: 14, accentColor: 'yellow', nutritionTags: ['Low Fat'] },
+    { name: 'Italy Olive', category: 'Fruits', price: '$3.20', oldPrice: '$3.90', tag: '8% OFF', image: 'https://d-themes.com/wordpress/wolmart/demo-29/wp-content/uploads/sites/50/2023/12/shop29-product-5-1-1.jpg', rating: 4, available: 122, sold: 0, accentColor: 'yellow', nutritionTags: ['Low Calorie'] },
+    { name: 'Lemon', category: 'Fruits', price: '$2.60', oldPrice: '$3.00', tag: '12% OFF', image: 'https://d-themes.com/wordpress/wolmart/demo-29/wp-content/uploads/sites/50/2023/12/shop29-product-6-1-1.jpg', rating: 4, available: 321, sold: 0, accentColor: 'yellow', nutritionTags: ['Low Calorie', 'Low Fat'] },
+    { name: 'Sweet Cherry', category: 'Fruits', price: '$2.30', oldPrice: '$2.90', tag: '10% OFF', image: 'https://d-themes.com/wordpress/wolmart/demo-29/wp-content/uploads/sites/50/2023/12/shop29-product-7-1-1.jpg', rating: 4, available: 192, sold: 0, accentColor: 'red', nutritionTags: ['Low Fat'] },
+    { name: 'Swiss Grapes', category: 'Fruits', price: '$3.50', oldPrice: '$4.10', tag: '13% OFF', image: 'https://d-themes.com/wordpress/wolmart/demo-29/wp-content/uploads/sites/50/2023/12/shop29-product-8-1-1.jpg', rating: 4, available: 168, sold: 0, accentColor: 'yellow', nutritionTags: ['Low Calorie'] }
   ],
   dealMonthProducts: [
-    { name: 'Cauliflower', category: 'Vegetable', price: '$2.15', oldPrice: '$2.65', tag: '19% OFF', image: '/wolmart-demo29/shop29-product-1-1-1-232x279.jpg', rating: 4, available: 175, sold: 1 },
-    { name: 'Garlic', category: 'Vegetable', price: '$3.20', oldPrice: '$3.70', tag: '14% OFF', image: '/wolmart-demo29/shop29-product-2-1-1-232x279.jpg', rating: 4, available: 89, sold: 1 },
-    { name: 'Red Grapes', category: 'Fruits', price: '$4.20', oldPrice: '$5.00', tag: '16% OFF', image: '/wolmart-demo29/shop29-product-3-1-232x279.jpg', rating: 4, available: 888, sold: 0 },
-    { name: 'Carp', category: 'Seafood', price: '$45.00', oldPrice: '$50.00', tag: '10% OFF', image: '/wolmart-demo29/shop29-product-4-1-232x279.jpg', rating: 5, available: 548, sold: 0 }
+    { name: 'Cauliflower', category: 'Vegetable', price: '$2.15', oldPrice: '$2.65', tag: '19% OFF', image: '/wolmart-demo29/shop29-product-1-1-1-232x279.jpg', rating: 4, available: 175, sold: 1, accentColor: 'green', nutritionTags: ['Low Calorie'] },
+    { name: 'Garlic', category: 'Vegetable', price: '$3.20', oldPrice: '$3.70', tag: '14% OFF', image: '/wolmart-demo29/shop29-product-2-1-1-232x279.jpg', rating: 4, available: 89, sold: 1, accentColor: 'white', nutritionTags: ['Low Calorie'] },
+    { name: 'Red Grapes', category: 'Fruits', price: '$4.20', oldPrice: '$5.00', tag: '16% OFF', image: '/wolmart-demo29/shop29-product-3-1-232x279.jpg', rating: 4, available: 888, sold: 0, accentColor: 'red', nutritionTags: ['Low Fat'] },
+    { name: 'Carp', category: 'Seafood', price: '$45.00', oldPrice: '$50.00', tag: '10% OFF', image: '/wolmart-demo29/shop29-product-4-1-232x279.jpg', rating: 5, available: 548, sold: 0, accentColor: 'silver', nutritionTags: [] }
   ],
   vendors: [
     {

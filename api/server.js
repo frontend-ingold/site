@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import { isAllowedOrigin } from './cors.js';
 import { getPageData } from './repository.js';
+import { pool } from './db.js';
 
 dotenv.config();
 
@@ -23,14 +24,8 @@ app.use(cors({
 app.use(express.json());
 
 app.get('/api/health', async (_request, response) => {
-  if (process.env.NODE_ENV !== 'production') {
-    response.json({ ok: true, mode: 'development' });
-    return;
-  }
-
-  const { pool } = await import('./db.js');
   await pool.query('SELECT 1');
-  response.json({ ok: true, mode: 'production' });
+  response.json({ ok: true });
 });
 
 app.get('/api/page-data', async (_request, response) => {

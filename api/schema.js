@@ -61,6 +61,8 @@ CREATE TABLE IF NOT EXISTS products (
   rating INTEGER NOT NULL,
   available INTEGER NOT NULL,
   sold INTEGER NOT NULL,
+  accent_color TEXT NOT NULL DEFAULT '',
+  nutrition_tags JSONB NOT NULL DEFAULT '[]'::jsonb,
   sort_order INTEGER NOT NULL
 );
 
@@ -87,4 +89,10 @@ CREATE TABLE IF NOT EXISTS articles (
   image TEXT NOT NULL,
   sort_order INTEGER NOT NULL
 );
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS accent_color TEXT NOT NULL DEFAULT '';
+
+ALTER TABLE products
+  ADD COLUMN IF NOT EXISTS nutrition_tags JSONB NOT NULL DEFAULT '[]'::jsonb;
 `;
