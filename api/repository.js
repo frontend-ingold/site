@@ -28,6 +28,25 @@ function mapProduct(row) {
   };
 }
 
+function mapUser(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email
+  };
+}
+
+function mapOrder(row) {
+  return {
+    id: row.id,
+    date: new Date(row.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+    total: Number(row.total),
+    status: row.status,
+    items: row.items ?? [],
+    customer: row.customer ?? {}
+  };
+}
+
 export async function getPageData() {
   const [
     pageSettingsResult,
@@ -152,4 +171,75 @@ export async function getPageData() {
     })),
     footer: pageSettings.footer
   };
+}
+
+export async function registerUser({ name, email, password }) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const existsResult = await pool.query('SELECT id FROM users WHERE email = $1', [normalizedEmail]);
+  if (existsResult.rowCount > 0) {
+    return null;
+  }
+
+  const result = await pool.query(
+    `INSERT INTO users(name, email, password)
+     VALUES ($1, $2, $3)
+     RETURNING id, name, email`,
+    [name.trim(), normalizedEmail, password]
+  );
+
+  return mapUser(result.rows[0]);
+}
+
+export async function loginUser({ email, password }) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const result = await pool.query(
+    `SELECT id, name, email
+     FROM users
+     WHERE email = $1 AND password = $2`,
+    [normalizedEmail, password]
+  );
+
+  return result.rowCount > 0 ? mapUser(result.rows[0]) : null;
+}
+
+export async function getUserPasswordHint(email) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const result = await pool.query('SELECT password FROM users WHERE email = $1', [normalizedEmail]);
+  return result.rowCount > 0 ? result.rows[0].password : null;
+}
+
+export async function updateUserProfile({ id, name, email }) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const result = await pool.query(
+    `UPDATE users
+     SET name = $2, email = $3, updated_at = NOW()
+     WHERE id = $1
+     RETURNING id, name, email`,
+    [id, name.trim(), normalizedEmail]
+  );
+
+  return result.rowCount > 0 ? mapUser(result.rows[0]) : null;
+}
+
+export async function getOrdersByUserId(userId) {
+  const result = await pool.query(
+    `SELECT id, status, total, customer, items, created_at
+     FROM orders
+     WHERE user_id = $1
+     ORDER BY created_at DESC`,
+    [userId]
+  );
+
+  return result.rows.map(mapOrder);
+}
+
+export async function createOrder({ userId, orderId, status, total, customer, items }) {
+  const result = await pool.query(
+    `INSERT INTO orders(id, user_id, status, total, customer, items)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, status, total, customer, items, created_at`,
+    [orderId, userId, status, total, JSON.stringify(customer), JSON.stringify(items)]
+  );
+
+  return mapOrder(result.rows[0]);
 }

@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUp, Bookmark, ChevronDown, ChevronLeft, ChevronRight, Eye, Flame, Grid2x2, Heart, Home, ListFilter, Menu, Minus, Phone, Plus, Repeat, Search, Settings, ShoppingCart, User, X } from 'lucide-react';
-import { getPageData } from './lib/api.js';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { ArrowUp, Bookmark, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Eye, Flame, Grid2x2, Heart, Home, ListFilter, Menu, Minus, Phone, Plus, Repeat, Search, Settings, ShoppingCart, User, X } from 'lucide-react';
+import { createOrder as createOrderRequest, getOrders as getOrdersRequest, getPageData, getPasswordHint, loginUser as loginUserRequest, registerUser as registerUserRequest, updateUserProfile as updateUserProfileRequest } from './lib/api.js';
 
 const HOME_HASH = '#/';
 const PRODUCT_LIST_PREFIX = '#/product-category/';
@@ -15,11 +15,291 @@ const ACCOUNT_HASH = '#/my-profile';
 const ORDERS_HASH = '#/my-orders';
 const SUCCESS_PREFIX = '#/success/';
 const STORAGE_KEYS = {
-  users: 'freshmart-users',
   currentUser: 'freshmart-current-user',
   cart: 'freshmart-cart',
   wishlist: 'freshmart-wishlist',
-  orders: 'freshmart-orders'
+  currency: 'freshmart-currency',
+  language: 'freshmart-language',
+};
+
+const CURRENCY_OPTIONS = {
+  usd: { label: 'USD', code: 'USD', locale: 'en-US', rate: 1 },
+  euro: { label: 'EUR', code: 'EUR', locale: 'de-DE', rate: 0.92 }
+};
+
+const LANGUAGE_OPTIONS = {
+  english: 'English',
+  german: 'German',
+  french: 'French'
+};
+
+const TRANSLATIONS = {
+  english: {
+    welcomeMarketplace: 'Welcome to FreshMart Grocery Marketplace',
+    searchPlaceholder: 'Search in fresh grocery products...',
+    login: 'Login',
+    wishlist: 'Wishlist',
+    cart: 'Cart',
+    callUs: 'Call us',
+    viewCart: 'View Cart',
+    checkout: 'Checkout',
+    shoppingCart: 'Shopping Cart',
+    subtotal: 'Subtotal',
+    shipping: 'Shipping',
+    total: 'Total',
+    continueShopping: 'Continue Shopping',
+    clearCart: 'Clear Cart',
+    updateCart: 'Update Cart',
+    couponDiscount: 'Coupon Discount',
+    applyCoupon: 'Apply Coupon',
+    city: 'City',
+    postcodeZip: 'Postcode / ZIP',
+    updateTotals: 'Update Totals',
+    shippingCost: 'Shipping Cost',
+    free: 'Free',
+    yourOrder: 'Your Order',
+    billingDetails: 'Billing Details',
+    firstName: 'First name *',
+    lastName: 'Last name *',
+    companyNameOptional: 'Company name (optional)',
+    countryRegion: 'Country / Region *',
+    streetAddress: 'Street address *',
+    apartmentOptional: 'Apartment, suite, unit, etc. (optional)',
+    townCity: 'Town / City *',
+    state: 'State *',
+    zipCode: 'ZIP Code *',
+    phone: 'Phone *',
+    emailAddress: 'Email address *',
+    shipDifferentAddress: 'Ship to a different address?',
+    orderNotesOptional: 'Order notes (optional)',
+    notesPlaceholder: 'Notes about your order, e.g. special notes for delivery.',
+    paymentMethods: 'Payment Methods',
+    directBankTransfer: 'Direct bank transfer',
+    checkPayments: 'Check payments',
+    cashOnDelivery: 'Cash on delivery',
+    placeOrder: 'Place Order',
+    myOrders: 'My Orders',
+    orderConfirmed: 'Order Confirmed',
+    thankYouOrder: 'Thank you for your order',
+    successCopy: 'Your checkout was completed successfully. We are preparing your items and will keep you updated on the delivery progress.',
+    orderId: 'Order ID',
+    status: 'Status',
+    date: 'Date',
+    customer: 'Customer',
+    shippingTo: 'Shipping To',
+    backToHome: 'Back To Home',
+    viewOrders: 'View Orders',
+    accountDetails: 'Account Details',
+    accountSnapshot: 'Account Snapshot',
+    saveChanges: 'Save Changes',
+    orders: 'Orders',
+    member: 'Member',
+    fullName: 'Full name',
+    forgotPassword: 'Forgot Password',
+    register: 'Register',
+    alreadyHaveAccount: 'Already have an account?',
+    createAccount: 'Create account',
+    forgotPasswordLink: 'Forgot password?',
+    useFreshMartFlow: 'Use the FreshMart account flow to continue shopping.',
+    enterEmailRecover: 'Enter your account email to recover access.',
+    noOrdersYet: 'No orders yet',
+    startShopping: 'Start Shopping',
+    orderSuccess: 'Order Success',
+    flatRate: 'Flat rate',
+    localPickup: 'Local pickup',
+    searchResultsFor: 'Search results for "{term}"'
+  },
+  german: {
+    welcomeMarketplace: 'Willkommen beim FreshMart Lebensmittel-Marktplatz',
+    searchPlaceholder: 'In frischen Lebensmitteln suchen...',
+    login: 'Anmelden',
+    wishlist: 'Wunschliste',
+    cart: 'Warenkorb',
+    callUs: 'Rufen Sie uns an',
+    viewCart: 'Warenkorb ansehen',
+    checkout: 'Kasse',
+    shoppingCart: 'Warenkorb',
+    subtotal: 'Zwischensumme',
+    shipping: 'Versand',
+    total: 'Gesamt',
+    continueShopping: 'Weiter einkaufen',
+    clearCart: 'Warenkorb leeren',
+    updateCart: 'Warenkorb aktualisieren',
+    couponDiscount: 'Gutscheinrabatt',
+    applyCoupon: 'Gutschein anwenden',
+    city: 'Stadt',
+    postcodeZip: 'Postleitzahl',
+    updateTotals: 'Summe aktualisieren',
+    shippingCost: 'Versandkosten',
+    free: 'Kostenlos',
+    yourOrder: 'Ihre Bestellung',
+    billingDetails: 'Rechnungsdetails',
+    firstName: 'Vorname *',
+    lastName: 'Nachname *',
+    companyNameOptional: 'Firmenname (optional)',
+    countryRegion: 'Land / Region *',
+    streetAddress: 'Straßenadresse *',
+    apartmentOptional: 'Wohnung, Suite, Einheit usw. (optional)',
+    townCity: 'Ort / Stadt *',
+    state: 'Bundesland *',
+    zipCode: 'PLZ *',
+    phone: 'Telefon *',
+    emailAddress: 'E-Mail-Adresse *',
+    shipDifferentAddress: 'An eine andere Adresse liefern?',
+    orderNotesOptional: 'Bestellnotizen (optional)',
+    notesPlaceholder: 'Hinweise zu Ihrer Bestellung, z. B. Lieferhinweise.',
+    paymentMethods: 'Zahlungsmethoden',
+    directBankTransfer: 'Direkte Banküberweisung',
+    checkPayments: 'Scheckzahlungen',
+    cashOnDelivery: 'Nachnahme',
+    placeOrder: 'Bestellung aufgeben',
+    myOrders: 'Meine Bestellungen',
+    orderConfirmed: 'Bestellung bestätigt',
+    thankYouOrder: 'Vielen Dank für Ihre Bestellung',
+    successCopy: 'Ihr Einkauf wurde erfolgreich abgeschlossen. Wir bereiten Ihre Artikel vor und halten Sie über den Lieferstatus auf dem Laufenden.',
+    orderId: 'Bestellnummer',
+    status: 'Status',
+    date: 'Datum',
+    customer: 'Kunde',
+    shippingTo: 'Lieferung nach',
+    backToHome: 'Zurück zur Startseite',
+    viewOrders: 'Bestellungen ansehen',
+    accountDetails: 'Kontodaten',
+    accountSnapshot: 'Kontoübersicht',
+    saveChanges: 'Änderungen speichern',
+    orders: 'Bestellungen',
+    member: 'Mitglied',
+    fullName: 'Vollständiger Name',
+    forgotPassword: 'Passwort vergessen',
+    register: 'Registrieren',
+    alreadyHaveAccount: 'Sie haben bereits ein Konto?',
+    createAccount: 'Konto erstellen',
+    forgotPasswordLink: 'Passwort vergessen?',
+    useFreshMartFlow: 'Verwenden Sie den FreshMart-Kontofluss, um weiter einzukaufen.',
+    enterEmailRecover: 'Geben Sie Ihre Konto-E-Mail ein, um den Zugriff wiederherzustellen.',
+    noOrdersYet: 'Noch keine Bestellungen',
+    startShopping: 'Jetzt einkaufen',
+    orderSuccess: 'Bestellung erfolgreich',
+    flatRate: 'Pauschalpreis',
+    localPickup: 'Abholung vor Ort',
+    searchResultsFor: 'Suchergebnisse für „{term}“'
+  },
+  french: {
+    welcomeMarketplace: 'Bienvenue sur le marché alimentaire FreshMart',
+    searchPlaceholder: 'Rechercher dans les produits frais...',
+    login: 'Connexion',
+    wishlist: 'Favoris',
+    cart: 'Panier',
+    callUs: 'Appelez-nous',
+    viewCart: 'Voir le panier',
+    checkout: 'Paiement',
+    shoppingCart: 'Panier',
+    subtotal: 'Sous-total',
+    shipping: 'Livraison',
+    total: 'Total',
+    continueShopping: 'Continuer vos achats',
+    clearCart: 'Vider le panier',
+    updateCart: 'Mettre à jour le panier',
+    couponDiscount: 'Réduction coupon',
+    applyCoupon: 'Appliquer le coupon',
+    city: 'Ville',
+    postcodeZip: 'Code postal',
+    updateTotals: 'Mettre à jour le total',
+    shippingCost: 'Frais de livraison',
+    free: 'Gratuit',
+    yourOrder: 'Votre commande',
+    billingDetails: 'Détails de facturation',
+    firstName: 'Prénom *',
+    lastName: 'Nom *',
+    companyNameOptional: 'Nom de l’entreprise (optionnel)',
+    countryRegion: 'Pays / Région *',
+    streetAddress: 'Adresse *',
+    apartmentOptional: 'Appartement, suite, unité, etc. (optionnel)',
+    townCity: 'Ville *',
+    state: 'Région *',
+    zipCode: 'Code postal *',
+    phone: 'Téléphone *',
+    emailAddress: 'Adresse e-mail *',
+    shipDifferentAddress: 'Livrer à une autre adresse ?',
+    orderNotesOptional: 'Notes de commande (optionnel)',
+    notesPlaceholder: 'Notes concernant votre commande, par ex. instructions de livraison.',
+    paymentMethods: 'Modes de paiement',
+    directBankTransfer: 'Virement bancaire direct',
+    checkPayments: 'Paiement par chèque',
+    cashOnDelivery: 'Paiement à la livraison',
+    placeOrder: 'Passer la commande',
+    myOrders: 'Mes commandes',
+    orderConfirmed: 'Commande confirmée',
+    thankYouOrder: 'Merci pour votre commande',
+    successCopy: 'Votre paiement a été effectué avec succès. Nous préparons vos articles et vous tiendrons informé de la livraison.',
+    orderId: 'ID de commande',
+    status: 'Statut',
+    date: 'Date',
+    customer: 'Client',
+    shippingTo: 'Livraison à',
+    backToHome: 'Retour à l’accueil',
+    viewOrders: 'Voir les commandes',
+    accountDetails: 'Détails du compte',
+    accountSnapshot: 'Aperçu du compte',
+    saveChanges: 'Enregistrer les modifications',
+    orders: 'Commandes',
+    member: 'Membre',
+    fullName: 'Nom complet',
+    forgotPassword: 'Mot de passe oublié',
+    register: 'Inscription',
+    alreadyHaveAccount: 'Vous avez déjà un compte ?',
+    createAccount: 'Créer un compte',
+    forgotPasswordLink: 'Mot de passe oublié ?',
+    useFreshMartFlow: 'Utilisez le parcours de compte FreshMart pour continuer vos achats.',
+    enterEmailRecover: 'Entrez l’e-mail de votre compte pour récupérer l’accès.',
+    noOrdersYet: 'Aucune commande pour le moment',
+    startShopping: 'Commencer vos achats',
+    orderSuccess: 'Commande réussie',
+    flatRate: 'Tarif fixe',
+    localPickup: 'Retrait sur place',
+    searchResultsFor: 'Résultats de recherche pour « {term} »'
+  }
+};
+
+const UiContext = createContext(null);
+
+function parsePriceValue(value) {
+  return typeof value === 'number' ? value : Number(String(value ?? '0').replace(/[^0-9.]/g, ''));
+}
+
+function interpolate(message, vars = {}) {
+  return Object.entries(vars).reduce((result, [key, value]) => result.replace(`{${key}}`, String(value)), message);
+}
+
+function useUi() {
+  return useContext(UiContext);
+}
+
+const SHIPPING_ZONES = {
+  usa: {
+    label: 'United States (US)',
+    states: [
+      { code: 'CA', label: 'California', flatRate: 7.5 },
+      { code: 'NY', label: 'New York', flatRate: 9.25 },
+      { code: 'TX', label: 'Texas', flatRate: 8.1 }
+    ]
+  },
+  india: {
+    label: 'India',
+    states: [
+      { code: 'WB', label: 'West Bengal', flatRate: 3.2 },
+      { code: 'MH', label: 'Maharashtra', flatRate: 4.1 },
+      { code: 'KA', label: 'Karnataka', flatRate: 4.65 }
+    ]
+  },
+  germany: {
+    label: 'Germany',
+    states: [
+      { code: 'BE', label: 'Berlin', flatRate: 10.4 },
+      { code: 'BY', label: 'Bavaria', flatRate: 11.3 },
+      { code: 'HH', label: 'Hamburg', flatRate: 9.9 }
+    ]
+  }
 };
 
 function slugifyCategory(value) {
@@ -32,6 +312,14 @@ function getProductListHash(categoryLabel) {
   }
 
   return `${PRODUCT_LIST_PREFIX}${slugifyCategory(categoryLabel)}`;
+}
+
+function getProductSearchHash(categoryLabel, searchTerm) {
+  const baseHash = getProductListHash(categoryLabel);
+  const normalizedSearch = searchTerm.trim();
+  return normalizedSearch
+    ? `${baseHash}?search=${encodeURIComponent(normalizedSearch)}`
+    : baseHash;
 }
 
 function getProductDetailHash(productSlug) {
@@ -55,13 +343,24 @@ function isSuccessRoute(hash) {
 }
 
 function getRouteCategorySlug(hash) {
+  const [pathHash] = hash.split('?');
   if (hash === '#/products' || hash === '#products') {
     return 'all';
   }
 
-  return hash.startsWith(PRODUCT_LIST_PREFIX)
-    ? hash.slice(PRODUCT_LIST_PREFIX.length) || 'all'
+  return pathHash.startsWith(PRODUCT_LIST_PREFIX)
+    ? pathHash.slice(PRODUCT_LIST_PREFIX.length) || 'all'
     : 'all';
+}
+
+function getRouteSearchTerm(hash) {
+  const queryIndex = hash.indexOf('?');
+  if (queryIndex === -1) {
+    return '';
+  }
+
+  const searchParams = new URLSearchParams(hash.slice(queryIndex + 1));
+  return searchParams.get('search')?.trim() ?? '';
 }
 
 function getRouteProductSlug(hash) {
@@ -126,12 +425,36 @@ function getProductSlug(product) {
   return product.slug || slugifyCategory(product.name);
 }
 
-function Header({ header, heroSlides, navigation, currentUser, cartCount, wishlistCount, onLogout }) {
+function getInitialShippingSelection() {
+  const country = 'usa';
+  const state = SHIPPING_ZONES[country].states[0];
+  return {
+    country,
+    stateCode: state.code,
+    city: '',
+    zip: ''
+  };
+}
+
+function readStorageValue(key, fallback) {
+  try {
+    const storedValue = window.localStorage.getItem(key);
+    return storedValue ? JSON.parse(storedValue) : fallback;
+  } catch (error) {
+    console.error(`Failed to read localStorage key: ${key}`, error);
+    return fallback;
+  }
+}
+
+function Header({ header, heroSlides, navigation, currentUser, cartCount, wishlistCount, onLogout, onCartClick, searchProducts = [] }) {
+  const { currency, language, setCurrency, setLanguage, t } = useUi();
   const [scrolled, setScrolled] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(navigation.searchCategories[0] ?? 'All Categories');
+  const [searchTerm, setSearchTerm] = useState('');
   const categoryDropdownRef = useRef(null);
+  const searchBoxRef = useRef(null);
 
   useEffect(() => {
     setSelectedCategory(navigation.searchCategories[0] ?? 'All Categories');
@@ -147,6 +470,10 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
     const handleOutsideClick = (event) => {
       if (!categoryDropdownRef.current?.contains(event.target)) {
         setCategoryMenuOpen(false);
+      }
+
+      if (!searchBoxRef.current?.contains(event.target)) {
+        setSearchTerm((value) => value.trim());
       }
     };
 
@@ -180,6 +507,21 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
   }, [mobileMenuOpen]);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const normalizedSearch = searchTerm.trim().toLowerCase();
+  const searchSuggestions = normalizedSearch
+    ? searchProducts
+      .filter((product) => {
+        const matchesCategory = selectedCategory === 'All Categories' || selectedCategory === 'All' || matchesArchiveCategory(product, slugifyCategory(selectedCategory));
+        const matchesSearch = `${product.name} ${product.category}`.toLowerCase().includes(normalizedSearch);
+        return matchesCategory && matchesSearch;
+      })
+      .slice(0, 6)
+    : [];
+  const handleSearch = () => {
+    navigateToHash(getProductSearchHash(selectedCategory, searchTerm));
+    setCategoryMenuOpen(false);
+    closeMobileMenu();
+  };
   const mobileFlatLinks = navigation.items.flatMap((item) => (
     item.columns
       ? item.columns.flatMap((column) => column.items.map((subItem) => ({ label: subItem.label, href: getNavHref(item.label) })))
@@ -190,12 +532,25 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
     <>
       <div className="topbar">
         <div className="container topbar-inner">
-          <p>{header.topbarText}</p>
+          <p>{t('welcomeMarketplace')}</p>
           <div className="top-links">
-            {header.topLinks.map((link) => (
+            <label className="top-select">
+              <select value={language} onChange={(event) => setLanguage(event.target.value)}>
+                {Object.entries(LANGUAGE_OPTIONS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="top-select">
+              <select value={currency} onChange={(event) => setCurrency(event.target.value)}>
+                {Object.entries(CURRENCY_OPTIONS).map(([value, option]) => (
+                  <option key={value} value={value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            {header.topLinks.filter((link) => !link.hasArrow).map((link) => (
               <span key={link.label}>
                 {link.label}
-                {link.hasArrow ? <ChevronDown size={12} /> : null}
               </span>
             ))}
           </div>
@@ -216,7 +571,7 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
               <img src={heroSlides.logo} alt="FreshMart" />
             </a>
           </div>
-          <div className="search-box">
+          <div className="search-box" ref={searchBoxRef}>
             <div className="category-dropdown" ref={categoryDropdownRef}>
               <button className="category-btn" type="button" onClick={() => setCategoryMenuOpen((open) => !open)}>
                 {selectedCategory}
@@ -242,11 +597,50 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
                 </div>
               ) : null}
             </div>
-            <input placeholder={header.searchPlaceholder} />
-            <button className="search-btn"><Search size={20} /></button>
+            <input
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  handleSearch();
+                }
+              }}
+              placeholder={t('searchPlaceholder')}
+            />
+            <button className="search-btn" type="button" onClick={handleSearch}><Search size={20} /></button>
+            {searchSuggestions.length > 0 ? (
+              <div className="search-suggestions">
+                {searchSuggestions.map((product) => (
+                  <a
+                    key={getProductSlug(product)}
+                    href={getProductDetailHash(getProductSlug(product))}
+                    className="search-suggestion-item"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      setSearchTerm(product.name);
+                      navigateToHash(getProductDetailHash(getProductSlug(product)));
+                      closeMobileMenu();
+                    }}
+                  >
+                    <img src={product.image} alt={product.name} />
+                    <span>
+                      <strong>{product.name}</strong>
+                      <small>{product.category}</small>
+                    </span>
+                  </a>
+                ))}
+              </div>
+            ) : null}
           </div>
           <div className="header-actions">
-            <div className="support"><Phone size={20} /><span>Call us<br /><b>{header.phone}</b></span></div>
+            <div className="support">
+              <span className="support-icon"><Phone size={18} /></span>
+              <span className="support-copy">
+                <small>{t('callUs')}</small>
+                <strong>{header.phone}</strong>
+              </span>
+            </div>
             <a
               className="header-action-link"
               href={currentUser ? ACCOUNT_HASH : LOGIN_HASH}
@@ -257,7 +651,7 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
               }}
             >
               <User size={22} />
-              <span>{currentUser ? currentUser.name.split(' ')[0] : 'Login'}</span>
+              <span>{currentUser ? currentUser.name.split(' ')[0] : t('login')}</span>
             </a>
             <a
               className="header-action-link"
@@ -269,7 +663,7 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
               }}
             >
               <Heart size={22} />
-              <span>Wishlist</span>
+              <span>{t('wishlist')}</span>
               {wishlistCount > 0 ? <b>{wishlistCount}</b> : null}
             </a>
             <a
@@ -277,12 +671,12 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
               href={CART_HASH}
               onClick={(event) => {
                 event.preventDefault();
-                navigateToHash(CART_HASH);
+                onCartClick?.();
                 closeMobileMenu();
               }}
             >
               <ShoppingCart size={23} />
-              <span>Cart</span>
+              <span>{t('cart')}</span>
               <b>{cartCount}</b>
             </a>
             {currentUser ? (
@@ -578,6 +972,7 @@ function DealOfMonthSection({ dealMeta, dealProducts, heroSlides, onAddToCart, o
 }
 
 function ProductCard({ product, compact = false, onAddToCart, onToggleWishlist, isWishlisted = false }) {
+  const { formatPrice } = useUi();
   const totalStock = (product.available ?? 0) + (product.sold ?? 0);
   const soldPercent = totalStock > 0 ? ((product.sold ?? 0) / totalStock) * 100 : 0;
   const productHref = getProductDetailHash(getProductSlug(product));
@@ -622,8 +1017,8 @@ function ProductCard({ product, compact = false, onAddToCart, onToggleWishlist, 
           <p className="discount-category">{product.category}</p>
           <div className="discount-meta">
             <div className="price discount-price">
-              <b>{product.price}</b>
-              <del>{product.oldPrice}</del>
+              <b>{formatPrice(product.price)}</b>
+              <del>{formatPrice(product.oldPrice)}</del>
             </div>
             <div className="stars">{'\u2605'.repeat(product.rating)}{'\u2606'.repeat(5 - product.rating)}</div>
           </div>
@@ -670,7 +1065,7 @@ function ProductCard({ product, compact = false, onAddToCart, onToggleWishlist, 
           {product.name}
         </a>
       </h3>
-      <div className="price"><b>{product.price}</b><del>{product.oldPrice}</del></div>
+      <div className="price"><b>{formatPrice(product.price)}</b><del>{formatPrice(product.oldPrice)}</del></div>
       <button className="cart-btn" type="button" onClick={() => onAddToCart?.(product)}><ShoppingCart size={17} /> Add to Cart</button>
     </div>
   );
@@ -790,11 +1185,13 @@ function ArticlesSection({ section, articles }) {
 }
 
 function ProductListPage({ pageData, routeHash, onAddToCart, onToggleWishlist, wishlistSlugs }) {
+  const { t, formatPrice } = useUi();
   const { categories, products, dealMonthProducts, sections } = pageData;
   const archiveMeta = sections.productList;
   const archiveProducts = [...dealMonthProducts, ...products];
   const routeCategorySlug = getRouteCategorySlug(routeHash);
-  const routeCategoryTitle = getArchiveTitleFromSlug(routeCategorySlug, categories);
+  const routeSearchTerm = getRouteSearchTerm(routeHash);
+  const routeCategoryTitle = routeSearchTerm ? t('searchResultsFor', { term: routeSearchTerm }) : getArchiveTitleFromSlug(routeCategorySlug, categories);
   const [sortBy, setSortBy] = useState(archiveMeta.sortOptions[0] ?? 'Default sorting');
   const [visibleCount, setVisibleCount] = useState(archiveMeta.showOptions?.[0] ?? 12);
   const [priceLimit, setPriceLimit] = useState(archiveMeta.priceRange?.max ?? 10);
@@ -809,7 +1206,13 @@ function ProductListPage({ pageData, routeHash, onAddToCart, onToggleWishlist, w
     setSelectedNutrition([]);
   }, [routeHash, archiveMeta.priceRange?.max]);
 
-  const routeProducts = archiveProducts.filter((product) => matchesArchiveCategory(product, routeCategorySlug));
+  const routeProducts = archiveProducts.filter((product) => {
+    const matchesCategory = matchesArchiveCategory(product, routeCategorySlug);
+    const matchesSearch = routeSearchTerm
+      ? `${product.name} ${product.category}`.toLowerCase().includes(routeSearchTerm.toLowerCase())
+      : true;
+    return matchesCategory && matchesSearch;
+  });
   const availableColors = Array.from(new Set(routeProducts.map((product) => product.accentColor).filter(Boolean)));
   const availableNutrition = Array.from(new Set(routeProducts.flatMap((product) => product.nutritionTags ?? [])));
 
@@ -869,12 +1272,12 @@ function ProductListPage({ pageData, routeHash, onAddToCart, onToggleWishlist, w
         <div className="product-archive-heading">
           <div>
             <h1>{routeCategoryTitle}</h1>
-            <p>{archiveProducts.length} {archiveMeta.resultLabel}</p>
+            <p>{routeProducts.length} {archiveMeta.resultLabel}</p>
           </div>
         </div>
       </section>
 
-      <section className="container section reveal">
+      <section className="container section checkout-section reveal">
         <div className="product-archive-layout">
           <aside className="product-archive-sidebar">
             <div className="archive-sidebar-card">
@@ -928,7 +1331,7 @@ function ProductListPage({ pageData, routeHash, onAddToCart, onToggleWishlist, w
                 />
                 <div className="archive-price-actions">
                   <button type="button" className="archive-apply-btn" onClick={() => setPriceLimit(pendingPriceLimit)}>Filter</button>
-                  <small>Price: ${archiveMeta.priceRange?.min ?? 0} - ${pendingPriceLimit.toFixed(2)}</small>
+                  <small>Price: {formatPrice(archiveMeta.priceRange?.min ?? 0)} - {formatPrice(pendingPriceLimit)}</small>
                 </div>
               </div>
 
@@ -1021,6 +1424,7 @@ function ProductListPage({ pageData, routeHash, onAddToCart, onToggleWishlist, w
 }
 
 function ProductDetailsPage({ pageData, routeHash, onAddToCart, onToggleWishlist, wishlistSlugs }) {
+  const { formatPrice, t } = useUi();
   const { categories, products, dealMonthProducts, sections } = pageData;
   const detailMeta = sections.productDetails;
   const allProducts = [...products, ...dealMonthProducts];
@@ -1089,8 +1493,8 @@ function ProductDetailsPage({ pageData, routeHash, onAddToCart, onToggleWishlist
               <span>2 Reviews</span>
             </div>
             <div className="product-detail-price-row">
-              <strong>{product.price}</strong>
-              <del>{product.oldPrice}</del>
+              <strong>{formatPrice(product.price)}</strong>
+              <del>{formatPrice(product.oldPrice)}</del>
             </div>
             <div className="product-detail-short-copy">
               {descriptionPoints.length ? (
@@ -1117,7 +1521,7 @@ function ProductDetailsPage({ pageData, routeHash, onAddToCart, onToggleWishlist
                 type="button"
                 onClick={() => onToggleWishlist?.(product)}
               >
-                <Heart size={18} /> Wishlist
+                <Heart size={18} /> {t('wishlist')}
               </button>
             </div>
             <div className="product-detail-meta">
@@ -1211,7 +1615,157 @@ function EmptyStateCard({ title, text, actionLabel, actionHref }) {
   );
 }
 
-function CartPage({ productsBySlug, cartItems, updateCartQuantity, removeCartItem }) {
+function CartPage({ productsBySlug, cartItems, updateCartQuantity, removeCartItem, clearCart }) {
+  const { formatPrice, t } = useUi();
+  const [shippingMethod, setShippingMethod] = useState('flat');
+  const [shippingDraft, setShippingDraft] = useState(getInitialShippingSelection);
+  const [shippingApplied, setShippingApplied] = useState(getInitialShippingSelection);
+  const rows = cartItems.map((item) => {
+    const product = productsBySlug[item.slug];
+    return product ? { ...item, product } : null;
+  }).filter(Boolean);
+  const subtotal = rows.reduce((sum, row) => sum + (Number(row.product.price.replace(/[^0-9.]/g, '')) * row.quantity), 0);
+  const freeShippingThreshold = 100;
+  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
+  const progressPercent = Math.min(100, (subtotal / freeShippingThreshold) * 100);
+  const draftStates = SHIPPING_ZONES[shippingDraft.country].states;
+  const appliedCountry = SHIPPING_ZONES[shippingApplied.country];
+  const appliedState = appliedCountry.states.find((state) => state.code === shippingApplied.stateCode) ?? appliedCountry.states[0];
+  const shippingRate = shippingMethod === 'local' ? 0 : appliedState.flatRate;
+  const total = subtotal + shippingRate;
+
+  const handleCountryChange = (country) => {
+    const nextState = SHIPPING_ZONES[country].states[0];
+    setShippingDraft((current) => ({
+      ...current,
+      country,
+      stateCode: nextState.code
+    }));
+  };
+
+  return (
+    <main className="account-page">
+      <section className="container section reveal">
+        {rows.length === 0 ? (
+          <EmptyStateCard title="Your cart is empty" text="Add products from the home, archive, or detail page to begin checkout." actionLabel="Continue Shopping" actionHref={HOME_HASH} />
+        ) : (
+          <div className="cart-layout">
+            <div className="account-card cart-table-shell">
+              <div className="cart-free-shipping">
+                <p>Add <strong>{formatPrice(remainingForFreeShipping)}</strong> to cart and get free shipping!</p>
+                <span><i style={{ width: `${progressPercent}%` }} /></span>
+              </div>
+
+              <div className="cart-table-head">
+                <span>Product</span>
+                <span>Price</span>
+                <span>Quantity</span>
+                <span>Subtotal</span>
+              </div>
+
+              <div className="cart-table">
+                {rows.map(({ slug, quantity, product }) => {
+                  const price = Number(product.price.replace(/[^0-9.]/g, ''));
+                  return (
+                    <div className="cart-row" key={slug}>
+                      <button type="button" className="cart-remove-btn" onClick={() => removeCartItem(slug)} aria-label={`Remove ${product.name}`}>
+                        <X size={14} />
+                      </button>
+                      <div className="cart-product">
+                        <div className="cart-product-media">
+                          <img src={product.image} alt={product.name} />
+                        </div>
+                        <div className="cart-product-copy">
+                          <a href={getProductDetailHash(slug)} onClick={(event) => {
+                            event.preventDefault();
+                            navigateToHash(getProductDetailHash(slug));
+                          }}>{product.name}</a>
+                          <span><strong>Vendor:</strong> wolmart29 vendor2</span>
+                        </div>
+                      </div>
+                      <strong className="cart-price">{formatPrice(product.price)}</strong>
+                      <div className="cart-qty">
+                        <button type="button" onClick={() => updateCartQuantity(slug, quantity - 1)}><Minus size={15} /></button>
+                        <span>{quantity}</span>
+                        <button type="button" onClick={() => updateCartQuantity(slug, quantity + 1)}><Plus size={15} /></button>
+                      </div>
+                      <strong className="cart-line-total">{formatPrice(price * quantity)}</strong>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="cart-toolbar">
+                <button type="button" className="cart-continue-btn" onClick={() => navigateToHash(HOME_HASH)}>{t('continueShopping')}</button>
+                <div className="cart-toolbar-actions">
+                  <button type="button" className="cart-outline-btn" onClick={clearCart}>{t('clearCart')}</button>
+                  <button type="button" className="cart-muted-btn">{t('updateCart')}</button>
+                </div>
+              </div>
+
+              <div className="cart-coupon">
+                <h2>{t('couponDiscount')}</h2>
+                <div className="cart-coupon-form">
+                  <input type="text" placeholder="Enter coupon code here..." />
+                  <button type="button" className="cart-outline-btn">{t('applyCoupon')}</button>
+                </div>
+              </div>
+            </div>
+
+            <aside className="account-card cart-summary">
+              <h3>{t('cart')}</h3>
+              <div><span>{t('subtotal')}</span><strong>{formatPrice(subtotal)}</strong></div>
+              <div className="cart-summary-divider" />
+              <div className="cart-summary-shipping-title"><span>{t('shipping')}</span></div>
+              <label className="cart-shipping-option">
+                <input
+                  type="checkbox"
+                  name="shipping-method"
+                  checked={shippingMethod === 'flat'}
+                  onChange={() => setShippingMethod('flat')}
+                />
+                <span>{t('flatRate')}: {formatPrice(appliedState.flatRate)}</span>
+              </label>
+              <label className="cart-shipping-option">
+                <input
+                  type="checkbox"
+                  name="shipping-method"
+                  checked={shippingMethod === 'local'}
+                  onChange={() => setShippingMethod('local')}
+                />
+                <span>{t('localPickup')}</span>
+              </label>
+              <p className="cart-summary-destination">
+                Shipping to <strong>{appliedState.code}, {appliedCountry.label}.</strong>
+              </p>
+              <div className="cart-summary-form">
+                <select value={shippingDraft.country} onChange={(event) => handleCountryChange(event.target.value)}>
+                  <option value="usa">United States (US)</option>
+                  <option value="india">India</option>
+                  <option value="germany">Germany</option>
+                </select>
+                <select value={shippingDraft.stateCode} onChange={(event) => setShippingDraft((current) => ({ ...current, stateCode: event.target.value }))}>
+                  {draftStates.map((state) => (
+                    <option key={`${shippingDraft.country}-${state.code}`} value={state.code}>{state.label}</option>
+                  ))}
+                </select>
+                <input type="text" placeholder={t('city')} value={shippingDraft.city} onChange={(event) => setShippingDraft((current) => ({ ...current, city: event.target.value }))} />
+                <input type="text" placeholder={t('postcodeZip')} value={shippingDraft.zip} onChange={(event) => setShippingDraft((current) => ({ ...current, zip: event.target.value }))} />
+                <button type="button" className="cart-outline-btn" onClick={() => setShippingApplied(shippingDraft)}>{t('updateTotals')}</button>
+              </div>
+              <div className="cart-summary-charge"><span>{t('shippingCost')}</span><strong>{shippingMethod === 'local' ? t('free') : formatPrice(shippingRate)}</strong></div>
+              <div className="cart-summary-total"><span>{t('total')}</span><strong>{formatPrice(total)}</strong></div>
+              <button type="button" className="cart-checkout-btn" onClick={() => navigateToHash(CHECKOUT_HASH)}>{t('checkout')}</button>
+            </aside>
+          </div>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function CartDrawer({ open, cartItems, productsBySlug, updateCartQuantity, removeCartItem, onClose }) {
+  const { formatPrice, t } = useUi();
   const rows = cartItems.map((item) => {
     const product = productsBySlug[item.slug];
     return product ? { ...item, product } : null;
@@ -1219,51 +1773,73 @@ function CartPage({ productsBySlug, cartItems, updateCartQuantity, removeCartIte
   const subtotal = rows.reduce((sum, row) => sum + (Number(row.product.price.replace(/[^0-9.]/g, '')) * row.quantity), 0);
 
   return (
-    <main className="account-page">
-      <AccountPageHero title="Shopping Cart" crumbs={[{ label: 'Cart' }]} />
-      <section className="container section reveal">
-        {rows.length === 0 ? (
-          <EmptyStateCard title="Your cart is empty" text="Add products from the home, archive, or detail page to begin checkout." actionLabel="Continue Shopping" actionHref={HOME_HASH} />
-        ) : (
-          <div className="account-card cart-layout">
-            <div className="cart-table">
-              {rows.map(({ slug, quantity, product }) => {
-                const price = Number(product.price.replace(/[^0-9.]/g, ''));
-                return (
-                  <div className="cart-row" key={slug}>
-                    <div className="cart-product">
+    <>
+      <div className={`cart-drawer-backdrop ${open ? 'is-open' : ''}`} onClick={onClose} />
+      <aside className={`cart-drawer ${open ? 'is-open' : ''}`} aria-hidden={!open}>
+        <div className="cart-drawer-head">
+          <h3>{t('shoppingCart')}</h3>
+          <button type="button" className="cart-drawer-close" onClick={onClose}>
+            Close <X size={18} />
+          </button>
+        </div>
+
+        <div className="cart-drawer-body">
+          {rows.length === 0 ? (
+            <div className="cart-drawer-empty">
+              <h4>Your cart is empty</h4>
+              <p>Add products from the catalogue to see them here.</p>
+              <button type="button" onClick={onClose}>{t('continueShopping')}</button>
+            </div>
+          ) : (
+            <>
+              <div className="cart-drawer-items">
+                {rows.map(({ slug, quantity, product }) => {
+                  const price = Number(product.price.replace(/[^0-9.]/g, ''));
+                  return (
+                    <div className="cart-drawer-item" key={slug}>
+                      <button type="button" className="cart-drawer-remove" onClick={() => removeCartItem(slug)} aria-label={`Remove ${product.name}`}>
+                        <X size={14} />
+                      </button>
                       <img src={product.image} alt={product.name} />
-                      <div>
+                      <div className="cart-drawer-item-copy">
                         <a href={getProductDetailHash(slug)} onClick={(event) => {
                           event.preventDefault();
+                          onClose();
                           navigateToHash(getProductDetailHash(slug));
                         }}>{product.name}</a>
-                        <span>{product.category}</span>
+                        <span>{quantity} x {formatPrice(price)}</span>
+                        <div className="cart-drawer-qty">
+                          <button type="button" onClick={() => updateCartQuantity(slug, quantity - 1)}><Minus size={14} /></button>
+                          <strong>{quantity}</strong>
+                          <button type="button" onClick={() => updateCartQuantity(slug, quantity + 1)}><Plus size={14} /></button>
+                        </div>
                       </div>
                     </div>
-                    <strong>{product.price}</strong>
-                    <div className="product-detail-qty">
-                      <button type="button" onClick={() => updateCartQuantity(slug, quantity - 1)}><Minus size={16} /></button>
-                      <span>{quantity}</span>
-                      <button type="button" onClick={() => updateCartQuantity(slug, quantity + 1)}><Plus size={16} /></button>
-                    </div>
-                    <strong>${(price * quantity).toFixed(2)}</strong>
-                    <button type="button" className="cart-remove-btn" onClick={() => removeCartItem(slug)}>Remove</button>
-                  </div>
-                );
-              })}
-            </div>
-            <aside className="cart-summary">
-              <h3>Cart Totals</h3>
-              <div><span>Subtotal</span><strong>${subtotal.toFixed(2)}</strong></div>
-              <div><span>Shipping</span><strong>Free</strong></div>
-              <div className="cart-summary-total"><span>Total</span><strong>${subtotal.toFixed(2)}</strong></div>
-              <button type="button" onClick={() => navigateToHash(CHECKOUT_HASH)}>Proceed To Checkout</button>
-            </aside>
-          </div>
-        )}
-      </section>
-    </main>
+                  );
+                })}
+              </div>
+
+              <div className="cart-drawer-footer">
+                <div className="cart-drawer-subtotal">
+                  <span>{t('subtotal')}:</span>
+                  <strong>{formatPrice(subtotal)}</strong>
+                </div>
+                <div className="cart-drawer-actions">
+                  <button type="button" className="cart-drawer-view" onClick={() => {
+                    onClose();
+                    navigateToHash(CART_HASH);
+                  }}>{t('viewCart')}</button>
+                  <button type="button" className="cart-drawer-checkout" onClick={() => {
+                    onClose();
+                    navigateToHash(CHECKOUT_HASH);
+                  }}>{t('checkout')}</button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </aside>
+    </>
   );
 }
 
@@ -1293,9 +1869,11 @@ function WishlistPage({ wishlistProducts, onAddToCart, onToggleWishlist }) {
   );
 }
 
-function AuthPage({ mode, users, setUsers, currentUser, setCurrentUser }) {
+function AuthPage({ mode, currentUser, onRegister, onLogin, onForgot }) {
+  const { t } = useUi();
   const [formState, setFormState] = useState({ name: '', email: '', password: '' });
   const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     setMessage('');
@@ -1309,51 +1887,50 @@ function AuthPage({ mode, users, setUsers, currentUser, setCurrentUser }) {
   }, [currentUser, mode]);
 
   const titleMap = {
-    login: 'Login',
-    register: 'Register',
-    forgot: 'Forgot Password'
+    login: t('login'),
+    register: t('register'),
+    forgot: t('forgotPassword')
   };
 
   const handleSubmit = (event) => {
     event.preventDefault();
 
-    if (mode === 'register') {
-      const exists = users.some((user) => user.email.toLowerCase() === formState.email.toLowerCase());
-      if (exists) {
-        setMessage('An account with this email already exists.');
+    setSubmitting(true);
+    setMessage('');
+
+    const action = async () => {
+      if (mode === 'register') {
+        await onRegister({
+          name: formState.name || formState.email.split('@')[0],
+          email: formState.email,
+          password: formState.password
+        });
+        navigateToHash(ACCOUNT_HASH);
         return;
       }
 
-      const nextUser = {
-        name: formState.name || formState.email.split('@')[0],
-        email: formState.email,
-        password: formState.password
-      };
-      const nextUsers = [...users, nextUser];
-      setUsers(nextUsers);
-      setCurrentUser({ name: nextUser.name, email: nextUser.email });
-      setMessage('');
-      navigateToHash(ACCOUNT_HASH);
-      return;
-    }
-
-    if (mode === 'login') {
-      const matchedUser = users.find((user) => user.email.toLowerCase() === formState.email.toLowerCase() && user.password === formState.password);
-      if (!matchedUser) {
-        setMessage('Invalid email or password.');
+      if (mode === 'login') {
+        await onLogin({
+          email: formState.email,
+          password: formState.password
+        });
+        navigateToHash(ACCOUNT_HASH);
         return;
       }
 
-      setCurrentUser({ name: matchedUser.name, email: matchedUser.email });
-      setMessage('');
-      navigateToHash(ACCOUNT_HASH);
-      return;
-    }
+      if (mode === 'forgot') {
+        const passwordHint = await onForgot(formState.email);
+        setMessage(`Password hint: ${passwordHint}`);
+      }
+    };
 
-    if (mode === 'forgot') {
-      const matchedUser = users.find((user) => user.email.toLowerCase() === formState.email.toLowerCase());
-      setMessage(matchedUser ? `Password hint: ${matchedUser.password}` : 'No account found with that email.');
-    }
+    action()
+      .catch((error) => {
+        setMessage(error.message);
+      })
+      .finally(() => {
+        setSubmitting(false);
+      });
   };
 
   return (
@@ -1363,22 +1940,22 @@ function AuthPage({ mode, users, setUsers, currentUser, setCurrentUser }) {
         <div className="auth-shell">
           <div className="auth-card">
             <h2>{titleMap[mode]}</h2>
-            <p>{mode === 'forgot' ? 'Enter your account email to recover access.' : 'Use the FreshMart account flow to continue shopping.'}</p>
+            <p>{mode === 'forgot' ? t('enterEmailRecover') : t('useFreshMartFlow')}</p>
             <form className="auth-form" onSubmit={handleSubmit}>
               {mode === 'register' ? (
-                <input value={formState.name} onChange={(event) => setFormState((state) => ({ ...state, name: event.target.value }))} placeholder="Full name" />
+                <input value={formState.name} onChange={(event) => setFormState((state) => ({ ...state, name: event.target.value }))} placeholder={t('fullName')} />
               ) : null}
               <input value={formState.email} onChange={(event) => setFormState((state) => ({ ...state, email: event.target.value }))} placeholder="Email address" type="email" required />
               {mode !== 'forgot' ? (
                 <input value={formState.password} onChange={(event) => setFormState((state) => ({ ...state, password: event.target.value }))} placeholder="Password" type="password" required />
               ) : null}
               {message ? <div className="auth-message">{message}</div> : null}
-              <button type="submit">{titleMap[mode]}</button>
+              <button type="submit" disabled={submitting}>{titleMap[mode]}</button>
             </form>
             <div className="auth-links">
-              {mode !== 'login' ? <a href={LOGIN_HASH} onClick={(event) => { event.preventDefault(); navigateToHash(LOGIN_HASH); }}>Already have an account?</a> : null}
-              {mode !== 'register' ? <a href={REGISTER_HASH} onClick={(event) => { event.preventDefault(); navigateToHash(REGISTER_HASH); }}>Create account</a> : null}
-              {mode !== 'forgot' ? <a href={FORGOT_HASH} onClick={(event) => { event.preventDefault(); navigateToHash(FORGOT_HASH); }}>Forgot password?</a> : null}
+              {mode !== 'login' ? <a href={LOGIN_HASH} onClick={(event) => { event.preventDefault(); navigateToHash(LOGIN_HASH); }}>{t('alreadyHaveAccount')}</a> : null}
+              {mode !== 'register' ? <a href={REGISTER_HASH} onClick={(event) => { event.preventDefault(); navigateToHash(REGISTER_HASH); }}>{t('createAccount')}</a> : null}
+              {mode !== 'forgot' ? <a href={FORGOT_HASH} onClick={(event) => { event.preventDefault(); navigateToHash(FORGOT_HASH); }}>{t('forgotPasswordLink')}</a> : null}
             </div>
           </div>
         </div>
@@ -1388,73 +1965,203 @@ function AuthPage({ mode, users, setUsers, currentUser, setCurrentUser }) {
 }
 
 function CheckoutPage({ currentUser, cartItems, productsBySlug, placeOrder }) {
+  const { t, formatPrice } = useUi();
+  const initialNameParts = (currentUser?.name ?? '').trim().split(/\s+/).filter(Boolean);
+  const initialFirstName = initialNameParts[0] ?? '';
+  const initialLastName = initialNameParts.slice(1).join(' ');
+  const [shippingMethod, setShippingMethod] = useState('flat');
   const [formState, setFormState] = useState({
-    name: currentUser?.name ?? '',
-    email: currentUser?.email ?? '',
-    phone: '',
+    firstName: initialFirstName,
+    lastName: initialLastName,
+    company: '',
+    country: 'usa',
+    state: 'CA',
     address: '',
+    addressTwo: '',
     city: '',
-    zip: ''
+    zip: '',
+    phone: '',
+    email: currentUser?.email ?? '',
+    shipDifferent: false,
+    notes: '',
+    paymentMethod: 'bank'
   });
   const rows = cartItems.map((item) => {
     const product = productsBySlug[item.slug];
     return product ? { ...item, product } : null;
   }).filter(Boolean);
-  const total = rows.reduce((sum, row) => sum + (Number(row.product.price.replace(/[^0-9.]/g, '')) * row.quantity), 0);
+  const subtotal = rows.reduce((sum, row) => sum + (Number(row.product.price.replace(/[^0-9.]/g, '')) * row.quantity), 0);
+  const checkoutStates = SHIPPING_ZONES[formState.country].states;
+  const selectedState = checkoutStates.find((state) => state.code === formState.state) ?? checkoutStates[0];
+  const shippingCost = shippingMethod === 'local' ? 0 : selectedState.flatRate;
+  const total = subtotal + shippingCost;
+  const freeShippingThreshold = 100;
+  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal);
+  const progressPercent = Math.min(100, (subtotal / freeShippingThreshold) * 100);
 
   useEffect(() => {
     setFormState((state) => ({
       ...state,
-      name: currentUser?.name ?? state.name,
+      firstName: currentUser?.name ? currentUser.name.split(' ')[0] : state.firstName,
+      lastName: currentUser?.name ? currentUser.name.split(' ').slice(1).join(' ') : state.lastName,
       email: currentUser?.email ?? state.email
     }));
   }, [currentUser]);
 
+  useEffect(() => {
+    const defaultState = SHIPPING_ZONES[formState.country].states[0];
+    if (!checkoutStates.some((state) => state.code === formState.state)) {
+      setFormState((state) => ({ ...state, state: defaultState.code }));
+    }
+  }, [checkoutStates, formState.country, formState.state]);
+
   return (
     <main className="account-page">
-      <AccountPageHero title="Checkout" crumbs={[{ label: 'Cart', href: CART_HASH }, { label: 'Checkout' }]} />
       <section className="container section reveal">
-        {!currentUser ? (
-          <EmptyStateCard title="Login required" text="Please login before completing checkout." actionLabel="Go To Login" actionHref={LOGIN_HASH} />
-        ) : rows.length === 0 ? (
+        {rows.length === 0 ? (
           <EmptyStateCard title="Cart is empty" text="Add at least one product before checkout." actionLabel="Browse Products" actionHref={HOME_HASH} />
         ) : (
-          <div className="checkout-layout">
+          <div className="checkout-shell">
             <form
-              className="account-card checkout-form"
+              className="checkout-layout"
               onSubmit={(event) => {
                 event.preventDefault();
-                placeOrder(formState);
+                placeOrder({
+                  name: `${formState.firstName} ${formState.lastName}`.trim(),
+                  email: formState.email,
+                  phone: formState.phone,
+                  address: `${formState.address}${formState.addressTwo ? `, ${formState.addressTwo}` : ''}`,
+                  city: formState.city,
+                  zip: formState.zip,
+                  company: formState.company,
+                  country: SHIPPING_ZONES[formState.country].label,
+                  state: selectedState.label,
+                  notes: formState.notes,
+                  paymentMethod: formState.paymentMethod
+                });
               }}
             >
-              <h3>Billing Details</h3>
-              <div className="checkout-grid">
-                {[
-                  ['name', 'Full name'],
-                  ['email', 'Email address'],
-                  ['phone', 'Phone number'],
-                  ['address', 'Street address'],
-                  ['city', 'City'],
-                  ['zip', 'Zip code']
-                ].map(([key, label]) => (
-                  <input
-                    key={key}
-                    value={formState[key]}
-                    onChange={(event) => setFormState((state) => ({ ...state, [key]: event.target.value }))}
-                    placeholder={label}
-                    required
-                  />
-                ))}
+              <div className="checkout-billing">
+                <h3>{t('billingDetails')}</h3>
+                <div className="checkout-grid">
+                  <label>
+                    <span>{t('firstName')}</span>
+                    <input value={formState.firstName} onChange={(event) => setFormState((state) => ({ ...state, firstName: event.target.value }))} required />
+                  </label>
+                  <label>
+                    <span>{t('lastName')}</span>
+                    <input value={formState.lastName} onChange={(event) => setFormState((state) => ({ ...state, lastName: event.target.value }))} required />
+                  </label>
+                </div>
+                <label className="checkout-field">
+                  <span>{t('companyNameOptional')}</span>
+                  <input value={formState.company} onChange={(event) => setFormState((state) => ({ ...state, company: event.target.value }))} />
+                </label>
+                <label className="checkout-field">
+                  <span>{t('countryRegion')}</span>
+                  <select value={formState.country} onChange={(event) => setFormState((state) => ({ ...state, country: event.target.value }))}>
+                    <option value="usa">United States (US)</option>
+                    <option value="india">India</option>
+                    <option value="germany">Germany</option>
+                  </select>
+                </label>
+                <label className="checkout-field">
+                  <span>{t('streetAddress')}</span>
+                  <input value={formState.address} onChange={(event) => setFormState((state) => ({ ...state, address: event.target.value }))} placeholder="House number and street name" required />
+                </label>
+                <label className="checkout-field">
+                  <input value={formState.addressTwo} onChange={(event) => setFormState((state) => ({ ...state, addressTwo: event.target.value }))} placeholder={t('apartmentOptional')} />
+                </label>
+                <div className="checkout-grid">
+                  <label>
+                    <span>{t('townCity')}</span>
+                    <input value={formState.city} onChange={(event) => setFormState((state) => ({ ...state, city: event.target.value }))} required />
+                  </label>
+                  <label>
+                    <span>{t('state')}</span>
+                    <select value={formState.state} onChange={(event) => setFormState((state) => ({ ...state, state: event.target.value }))}>
+                      {checkoutStates.map((state) => (
+                        <option key={`${formState.country}-${state.code}`} value={state.code}>{state.label}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="checkout-grid">
+                  <label>
+                    <span>{t('zipCode')}</span>
+                    <input value={formState.zip} onChange={(event) => setFormState((state) => ({ ...state, zip: event.target.value }))} required />
+                  </label>
+                  <label>
+                    <span>{t('phone')}</span>
+                    <input value={formState.phone} onChange={(event) => setFormState((state) => ({ ...state, phone: event.target.value }))} required />
+                  </label>
+                </div>
+                <label className="checkout-field">
+                  <span>{t('emailAddress')}</span>
+                  <input type="email" value={formState.email} onChange={(event) => setFormState((state) => ({ ...state, email: event.target.value }))} required />
+                </label>
+                <label className="checkout-check">
+                  <input type="checkbox" checked={formState.shipDifferent} onChange={(event) => setFormState((state) => ({ ...state, shipDifferent: event.target.checked }))} />
+                  <span>{t('shipDifferentAddress')}</span>
+                </label>
+                <label className="checkout-field">
+                  <span>{t('orderNotesOptional')}</span>
+                  <textarea value={formState.notes} onChange={(event) => setFormState((state) => ({ ...state, notes: event.target.value }))} placeholder={t('notesPlaceholder')} rows={4} />
+                </label>
               </div>
-              <button type="submit">Place Order</button>
+
+              <aside className="checkout-order">
+                <h3>{t('yourOrder')}</h3>
+                <div className="checkout-order-head">
+                  <span>Product</span>
+                </div>
+                <div className="checkout-order-items">
+                  {rows.map((row) => (
+                    <div className="checkout-order-item" key={row.slug}>
+                      <div>
+                        <strong>{row.product.name} × {row.quantity}</strong>
+                        <span>Vendor: wolmart29 vendor2</span>
+                      </div>
+                      <b>{formatPrice((Number(row.product.price.replace(/[^0-9.]/g, '')) * row.quantity))}</b>
+                    </div>
+                  ))}
+                </div>
+                <div className="checkout-order-row"><span>{t('subtotal')}</span><strong>{formatPrice(subtotal)}</strong></div>
+                <div className="checkout-order-shipping">
+                  <span>{t('shipping')}</span>
+                  <label>
+                    <input type="radio" name="checkout-shipping" checked={shippingMethod === 'flat'} onChange={() => setShippingMethod('flat')} />
+                    <span>{t('flatRate')}</span>
+                  </label>
+                  <label>
+                    <input type="radio" name="checkout-shipping" checked={shippingMethod === 'local'} onChange={() => setShippingMethod('local')} />
+                    <span>{t('localPickup')}</span>
+                  </label>
+                </div>
+                <div className="checkout-order-row"><span>{t('total')}</span><strong>{formatPrice(total)}</strong></div>
+                <div className="checkout-order-progress">
+                  <p>Add <strong>{formatPrice(remainingForFreeShipping)}</strong> to cart and get free shipping!</p>
+                  <span><i style={{ width: `${progressPercent}%` }} /></span>
+                </div>
+                <div className="checkout-payment">
+                  <h4>{t('paymentMethods')}</h4>
+                  <label className="checkout-payment-option is-active">
+                    <input type="radio" name="payment-method" checked={formState.paymentMethod === 'bank'} onChange={() => setFormState((state) => ({ ...state, paymentMethod: 'bank' }))} />
+                    <span>{t('directBankTransfer')}</span>
+                  </label>
+                  <p>Make your payment directly into our bank account. Please use your Order ID as the payment reference. Your order will not be shipped until the funds have cleared in our account.</p>
+                  <label className="checkout-payment-option">
+                    <input type="radio" name="payment-method" checked={formState.paymentMethod === 'check'} onChange={() => setFormState((state) => ({ ...state, paymentMethod: 'check' }))} />
+                    <span>{t('checkPayments')}</span>
+                  </label>
+                  <label className="checkout-payment-option">
+                    <input type="radio" name="payment-method" checked={formState.paymentMethod === 'cod'} onChange={() => setFormState((state) => ({ ...state, paymentMethod: 'cod' }))} />
+                    <span>{t('cashOnDelivery')}</span>
+                  </label>
+                </div>
+                <button type="submit" className="checkout-place-order">{t('placeOrder')}</button>
+              </aside>
             </form>
-            <aside className="cart-summary account-card">
-              <h3>Your Order</h3>
-              {rows.map((row) => (
-                <div key={row.slug}><span>{row.product.name} x {row.quantity}</span><strong>${(Number(row.product.price.replace(/[^0-9.]/g, '')) * row.quantity).toFixed(2)}</strong></div>
-              ))}
-              <div className="cart-summary-total"><span>Total</span><strong>${total.toFixed(2)}</strong></div>
-            </aside>
           </div>
         )}
       </section>
@@ -1463,6 +2170,7 @@ function CheckoutPage({ currentUser, cartItems, productsBySlug, placeOrder }) {
 }
 
 function AccountPage({ currentUser, orders, updateProfile }) {
+  const { t } = useUi();
   const [formState, setFormState] = useState({ name: currentUser?.name ?? '', email: currentUser?.email ?? '' });
 
   useEffect(() => {
@@ -1478,7 +2186,7 @@ function AccountPage({ currentUser, orders, updateProfile }) {
         ) : (
           <div className="account-layout">
             <div className="account-card">
-              <h3>Account Details</h3>
+              <h3>{t('accountDetails')}</h3>
               <form
                 className="auth-form"
                 onSubmit={(event) => {
@@ -1486,18 +2194,18 @@ function AccountPage({ currentUser, orders, updateProfile }) {
                   updateProfile(formState);
                 }}
               >
-                <input value={formState.name} onChange={(event) => setFormState((state) => ({ ...state, name: event.target.value }))} placeholder="Full name" />
-                <input value={formState.email} onChange={(event) => setFormState((state) => ({ ...state, email: event.target.value }))} placeholder="Email address" type="email" />
-                <button type="submit">Save Changes</button>
+                <input value={formState.name} onChange={(event) => setFormState((state) => ({ ...state, name: event.target.value }))} placeholder={t('fullName')} />
+                <input value={formState.email} onChange={(event) => setFormState((state) => ({ ...state, email: event.target.value }))} placeholder={t('emailAddress')} type="email" />
+                <button type="submit">{t('saveChanges')}</button>
               </form>
             </div>
             <div className="account-card">
-              <h3>Account Snapshot</h3>
+              <h3>{t('accountSnapshot')}</h3>
               <div className="account-stats">
-                <div><strong>{orders.length}</strong><span>Orders</span></div>
-                <div><strong>{currentUser.name.split(' ')[0]}</strong><span>Member</span></div>
+                <div><strong>{orders.length}</strong><span>{t('orders')}</span></div>
+                <div><strong>{currentUser.name.split(' ')[0]}</strong><span>{t('member')}</span></div>
               </div>
-              <button type="button" onClick={() => navigateToHash(ORDERS_HASH)}>View My Orders</button>
+              <button type="button" onClick={() => navigateToHash(ORDERS_HASH)}>{t('viewOrders')}</button>
             </div>
           </div>
         )}
@@ -1506,10 +2214,11 @@ function AccountPage({ currentUser, orders, updateProfile }) {
   );
 }
 
-function OrdersPage({ currentUser, orders }) {
+function OrdersPage({ currentUser, orders, productsBySlug }) {
+  const { t, formatPrice } = useUi();
   return (
     <main className="account-page">
-      <AccountPageHero title="My Orders" crumbs={[{ label: 'My Orders' }]} />
+      <AccountPageHero title={t('myOrders')} crumbs={[{ label: t('myOrders') }]} />
       <section className="container section reveal">
         {!currentUser ? (
           <EmptyStateCard title="Login required" text="Please login to access your orders." actionLabel="Go To Login" actionHref={LOGIN_HASH} />
@@ -1518,18 +2227,46 @@ function OrdersPage({ currentUser, orders }) {
         ) : (
           <div className="account-card orders-list">
             {orders.map((order) => (
-              <div className="order-row" key={order.id}>
-                <div>
-                  <strong>Order #{order.id}</strong>
-                  <span>{order.date}</span>
+              <div className="order-card" key={order.id}>
+                <div className="order-card-head">
+                  <div>
+                    <strong>Order #{order.id}</strong>
+                    <span>{order.date}</span>
+                  </div>
+                  <div>
+                    <strong>{formatPrice(order.total)}</strong>
+                    <span>{order.items.length} items</span>
+                  </div>
+                  <div>
+                    <strong>{order.status}</strong>
+                    <span>{order.customer.city}</span>
+                  </div>
                 </div>
-                <div>
-                  <strong>${order.total.toFixed(2)}</strong>
-                  <span>{order.items.length} items</span>
-                </div>
-                <div>
-                  <strong>{order.status}</strong>
-                  <span>{order.customer.city}</span>
+                <div className="order-products">
+                  {order.items.map((item) => {
+                    const fallbackProduct = productsBySlug[item.slug];
+                    const image = item.image ?? fallbackProduct?.image;
+                    const category = item.category ?? fallbackProduct?.category ?? '';
+
+                    return (
+                      <a
+                        key={`${order.id}-${item.slug}`}
+                        className="order-product-row"
+                        href={getProductDetailHash(item.slug)}
+                        onClick={(event) => {
+                          event.preventDefault();
+                          navigateToHash(getProductDetailHash(item.slug));
+                        }}
+                      >
+                        {image ? <img src={image} alt={item.name} /> : null}
+                        <div>
+                          <strong>{item.name}</strong>
+                          <span>{category}</span>
+                        </div>
+                        <b>{item.quantity} x {formatPrice(item.price)}</b>
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -1541,24 +2278,47 @@ function OrdersPage({ currentUser, orders }) {
 }
 
 function SuccessPage({ order }) {
+  const { t, formatPrice } = useUi();
   return (
     <main className="account-page">
-      <AccountPageHero title="Order Success" crumbs={[{ label: 'Checkout', href: CHECKOUT_HASH }, { label: 'Success' }]} />
       <section className="container section reveal">
-        <div className="success-card">
-          <span className="page-state-badge">FreshMart</span>
-          <h2>Thank you for your order</h2>
-          <p>Your checkout was completed successfully.</p>
+        <div className="success-card success-card-modern">
+          <div className="success-hero">
+            <span className="success-icon"><CheckCircle2 size={34} /></span>
+            <span className="success-kicker">{t('orderConfirmed')}</span>
+            <h2>{t('thankYouOrder')}</h2>
+            <p>{t('successCopy')}</p>
+          </div>
           {order ? (
-            <div className="success-summary">
-              <div><strong>Order ID</strong><span>{order.id}</span></div>
-              <div><strong>Total</strong><span>${order.total.toFixed(2)}</span></div>
-              <div><strong>Status</strong><span>{order.status}</span></div>
-            </div>
+            <>
+              <div className="success-summary-grid">
+                <div>
+                  <strong>{t('orderId')}</strong>
+                  <span>{order.id}</span>
+                </div>
+                <div>
+                  <strong>{t('total')}</strong>
+                  <span>{formatPrice(order.total)}</span>
+                </div>
+                <div>
+                  <strong>{t('status')}</strong>
+                  <span>{order.status}</span>
+                </div>
+                <div>
+                  <strong>{t('date')}</strong>
+                  <span>{order.date}</span>
+                </div>
+              </div>
+              <div className="success-summary">
+                <div><strong>{t('customer')}</strong><span>{order.customer?.name ?? 'Guest'}</span></div>
+                <div><strong>Email</strong><span>{order.customer?.email ?? 'Not provided'}</span></div>
+                <div><strong>{t('shippingTo')}</strong><span>{order.customer?.city ?? 'N/A'}{order.customer?.state ? `, ${order.customer.state}` : ''}</span></div>
+              </div>
+            </>
           ) : null}
           <div className="success-actions">
-            <button type="button" onClick={() => navigateToHash(ORDERS_HASH)}>View Orders</button>
-            <button type="button" className="is-secondary" onClick={() => navigateToHash(HOME_HASH)}>Back To Home</button>
+            <button type="button" onClick={() => navigateToHash(ORDERS_HASH)}>{t('viewOrders')}</button>
+            <button type="button" className="is-secondary" onClick={() => navigateToHash(HOME_HASH)}>{t('backToHome')}</button>
           </div>
         </div>
       </section>
@@ -1594,36 +2354,28 @@ function Footer({ footer, heroSlides }) {
 }
 
 export default function App() {
+  const [currency, setCurrency] = useState(() => readStorageValue(STORAGE_KEYS.currency, 'usd'));
+  const [language, setLanguage] = useState(() => readStorageValue(STORAGE_KEYS.language, 'english'));
   const [pageData, setPageData] = useState(null);
   const [pageError, setPageError] = useState('');
   const [routeHash, setRouteHash] = useState(window.location.hash || HOME_HASH);
-  const [users, setUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [cartItems, setCartItems] = useState([]);
-  const [wishlistItems, setWishlistItems] = useState([]);
+  const [currentUser, setCurrentUser] = useState(() => readStorageValue(STORAGE_KEYS.currentUser, null));
+  const [cartItems, setCartItems] = useState(() => readStorageValue(STORAGE_KEYS.cart, []));
+  const [wishlistItems, setWishlistItems] = useState(() => readStorageValue(STORAGE_KEYS.wishlist, []));
   const [orders, setOrders] = useState([]);
-
-  useEffect(() => {
-    const storedUsers = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.users) ?? '[]');
-    const storedCurrentUser = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.currentUser) ?? 'null');
-    const storedCart = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.cart) ?? '[]');
-    const storedWishlist = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.wishlist) ?? '[]');
-    const storedOrders = JSON.parse(window.localStorage.getItem(STORAGE_KEYS.orders) ?? '[]');
-
-    setUsers(storedUsers);
-    setCurrentUser(storedCurrentUser);
-    setCartItems(storedCart);
-    setWishlistItems(storedWishlist);
-    setOrders(storedOrders);
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(users));
-  }, [users]);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.currentUser, JSON.stringify(currentUser));
   }, [currentUser]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.currency, JSON.stringify(currency));
+  }, [currency]);
+
+  useEffect(() => {
+    window.localStorage.setItem(STORAGE_KEYS.language, JSON.stringify(language));
+  }, [language]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.cart, JSON.stringify(cartItems));
@@ -1632,10 +2384,6 @@ export default function App() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEYS.wishlist, JSON.stringify(wishlistItems));
   }, [wishlistItems]);
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(orders));
-  }, [orders]);
 
   useEffect(() => {
     if (!window.location.hash) {
@@ -1670,6 +2418,45 @@ export default function App() {
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
+
+  useEffect(() => {
+    if (!cartDrawerOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [cartDrawerOpen]);
+
+  useEffect(() => {
+    setCartDrawerOpen(false);
+  }, [routeHash]);
+
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setOrders([]);
+      return;
+    }
+
+    let isActive = true;
+    getOrdersRequest(currentUser.id)
+      .then((nextOrders) => {
+        if (isActive) {
+          setOrders(nextOrders);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load orders:', error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!pageData) {
@@ -1731,6 +2518,18 @@ export default function App() {
   const successOrder = isSuccessRoute(routeHash)
     ? orders.find((order) => order.id === getRouteSuccessOrderId(routeHash))
     : null;
+  const showFloatingToolbar = routeHash !== CART_HASH && routeHash !== CHECKOUT_HASH;
+  const t = (key, vars) => interpolate(TRANSLATIONS[language]?.[key] ?? TRANSLATIONS.english[key] ?? key, vars);
+  const formatPrice = (value) => {
+    const currencyConfig = CURRENCY_OPTIONS[currency] ?? CURRENCY_OPTIONS.usd;
+    const convertedValue = parsePriceValue(value) * currencyConfig.rate;
+    return new Intl.NumberFormat(currencyConfig.locale, {
+      style: 'currency',
+      currency: currencyConfig.code,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(convertedValue);
+  };
 
   const handleAddToCart = (product, quantity = 1) => {
     const slug = getProductSlug(product);
@@ -1766,13 +2565,22 @@ export default function App() {
     setCartItems((items) => items.filter((item) => item.slug !== slug));
   };
 
+  const clearCart = () => {
+    setCartItems([]);
+  };
+
   const updateProfile = ({ name, email }) => {
     if (!currentUser) {
       return;
     }
 
-    setCurrentUser({ name, email });
-    setUsers((items) => items.map((user) => user.email === currentUser.email ? { ...user, name, email } : user));
+    updateUserProfileRequest({ id: currentUser.id, name, email })
+      .then((updatedUser) => {
+        setCurrentUser(updatedUser);
+      })
+      .catch((error) => {
+        console.error('Failed to update profile:', error);
+      });
   };
 
   const handleLogout = () => {
@@ -1780,32 +2588,55 @@ export default function App() {
     navigateToHash(HOME_HASH);
   };
 
-  const placeOrder = (customer) => {
+  const placeOrder = async (customer) => {
+    if (!currentUser?.id) {
+      navigateToHash(LOGIN_HASH);
+      return;
+    }
+
     const items = cartItems.map((item) => {
       const product = productsBySlug[item.slug];
       return {
         slug: item.slug,
         quantity: item.quantity,
         name: product?.name ?? item.slug,
-        price: Number((product?.price ?? '$0').replace(/[^0-9.]/g, ''))
+        price: Number((product?.price ?? '$0').replace(/[^0-9.]/g, '')),
+        image: product?.image ?? '',
+        category: product?.category ?? ''
       };
     });
     const total = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const orderId = `FM${Date.now().toString().slice(-8)}`;
-    const nextOrder = {
-      id: orderId,
-      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
-      total,
+    const nextOrder = await createOrderRequest({
+      userId: currentUser.id,
+      orderId,
       status: 'Processing',
-      items,
-      customer
-    };
+      total,
+      customer,
+      items
+    });
     setOrders((items) => [nextOrder, ...items]);
     setCartItems([]);
     navigateToHash(getSuccessHash(orderId));
   };
 
+  const handleRegister = async (user) => {
+    const nextUser = await registerUserRequest(user);
+    setCurrentUser(nextUser);
+  };
+
+  const handleLogin = async (credentials) => {
+    const loggedInUser = await loginUserRequest(credentials);
+    setCurrentUser(loggedInUser);
+  };
+
+  const handleForgotPassword = async (email) => {
+    const result = await getPasswordHint(email);
+    return result.passwordHint;
+  };
+
   return (
+    <UiContext.Provider value={{ currency, language, setCurrency, setLanguage, t, formatPrice }}>
     <>
       <Header
         header={pageData.header}
@@ -1815,23 +2646,25 @@ export default function App() {
         cartCount={cartCount}
         wishlistCount={wishlistProducts.length}
         onLogout={handleLogout}
+        onCartClick={() => setCartDrawerOpen(true)}
+        searchProducts={allProducts}
       />
       {routeHash === CART_HASH ? (
-        <CartPage productsBySlug={productsBySlug} cartItems={cartItems} updateCartQuantity={updateCartQuantity} removeCartItem={removeCartItem} />
+        <CartPage productsBySlug={productsBySlug} cartItems={cartItems} updateCartQuantity={updateCartQuantity} removeCartItem={removeCartItem} clearCart={clearCart} />
       ) : routeHash === WISHLIST_HASH ? (
         <WishlistPage wishlistProducts={wishlistProducts} onAddToCart={handleAddToCart} onToggleWishlist={handleToggleWishlist} />
       ) : routeHash === LOGIN_HASH ? (
-        <AuthPage mode="login" users={users} setUsers={setUsers} currentUser={currentUser} setCurrentUser={setCurrentUser} />
+        <AuthPage mode="login" currentUser={currentUser} onRegister={handleRegister} onLogin={handleLogin} onForgot={handleForgotPassword} />
       ) : routeHash === REGISTER_HASH ? (
-        <AuthPage mode="register" users={users} setUsers={setUsers} currentUser={currentUser} setCurrentUser={setCurrentUser} />
+        <AuthPage mode="register" currentUser={currentUser} onRegister={handleRegister} onLogin={handleLogin} onForgot={handleForgotPassword} />
       ) : routeHash === FORGOT_HASH ? (
-        <AuthPage mode="forgot" users={users} setUsers={setUsers} currentUser={currentUser} setCurrentUser={setCurrentUser} />
+        <AuthPage mode="forgot" currentUser={currentUser} onRegister={handleRegister} onLogin={handleLogin} onForgot={handleForgotPassword} />
       ) : routeHash === CHECKOUT_HASH ? (
         <CheckoutPage currentUser={currentUser} cartItems={cartItems} productsBySlug={productsBySlug} placeOrder={placeOrder} />
       ) : routeHash === ACCOUNT_HASH ? (
         <AccountPage currentUser={currentUser} orders={orders} updateProfile={updateProfile} />
       ) : routeHash === ORDERS_HASH ? (
-        <OrdersPage currentUser={currentUser} orders={orders} />
+        <OrdersPage currentUser={currentUser} orders={orders} productsBySlug={productsBySlug} />
       ) : isSuccessRoute(routeHash) ? (
         <SuccessPage order={successOrder} />
       ) : isProductDetailRoute(routeHash) ? (
@@ -1851,7 +2684,16 @@ export default function App() {
         </>
       )}
       <Footer footer={pageData.footer} heroSlides={pageData.heroSlides} />
-      <FloatingToolbar />
+      {showFloatingToolbar ? <FloatingToolbar /> : null}
+      <CartDrawer
+        open={cartDrawerOpen}
+        cartItems={cartItems}
+        productsBySlug={productsBySlug}
+        updateCartQuantity={updateCartQuantity}
+        removeCartItem={removeCartItem}
+        onClose={() => setCartDrawerOpen(false)}
+      />
     </>
+    </UiContext.Provider>
   );
 }

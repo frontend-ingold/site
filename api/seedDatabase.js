@@ -10,6 +10,8 @@ export async function seedDatabase({ closePool = false } = {}) {
     await client.query(schemaSql);
     await client.query(`
       TRUNCATE TABLE
+        orders,
+        users,
         vendor_items,
         vendors,
         articles,

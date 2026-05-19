@@ -2,7 +2,7 @@ const seedData = {
   header: {
     topbarText: 'Welcome to FreshMart Grocery Marketplace',
     topLinks: [
-      { label: 'USD', hasArrow: true },
+      
       { label: 'English', hasArrow: true },
       { label: 'Blog', hasArrow: false },
       { label: 'Contact', hasArrow: false }
