@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUp, Bookmark, ChevronDown, ChevronLeft, ChevronRight, Eye, Flame, Grid2x2, Heart, Home, ListFilter, Minus, Phone, Plus, Repeat, Search, Settings, ShoppingCart, User } from 'lucide-react';
+import { ArrowUp, Bookmark, ChevronDown, ChevronLeft, ChevronRight, Eye, Flame, Grid2x2, Heart, Home, ListFilter, Menu, Minus, Phone, Plus, Repeat, Search, Settings, ShoppingCart, User, X } from 'lucide-react';
 import { getPageData } from './lib/api.js';
 
 const HOME_HASH = '#/';
@@ -129,6 +129,7 @@ function getProductSlug(product) {
 function Header({ header, heroSlides, navigation, currentUser, cartCount, wishlistCount, onLogout }) {
   const [scrolled, setScrolled] = useState(false);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(navigation.searchCategories[0] ?? 'All Categories');
   const categoryDropdownRef = useRef(null);
 
@@ -153,6 +154,38 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth > 980) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+
+    if (mobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = previousOverflow || '';
+    }
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [mobileMenuOpen]);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+  const mobileFlatLinks = navigation.items.flatMap((item) => (
+    item.columns
+      ? item.columns.flatMap((column) => column.items.map((subItem) => ({ label: subItem.label, href: getNavHref(item.label) })))
+      : []
+  ));
+
   return (
     <>
       <div className="topbar">
@@ -171,10 +204,14 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
 
       <header className="header">
         <div className="container header-main">
+          <button type="button" className="mobile-menu-toggle" aria-label="Open menu" onClick={() => setMobileMenuOpen(true)}>
+            <Menu size={24} />
+          </button>
           <div className="logo">
             <a href={HOME_HASH} onClick={(event) => {
               event.preventDefault();
               navigateToHash(HOME_HASH);
+              closeMobileMenu();
             }}>
               <img src={heroSlides.logo} alt="FreshMart" />
             </a>
@@ -196,6 +233,7 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
                         setSelectedCategory(category);
                         setCategoryMenuOpen(false);
                         navigateToHash(getProductListHash(category));
+                        closeMobileMenu();
                       }}
                     >
                       {category}
@@ -215,6 +253,7 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
               onClick={(event) => {
                 event.preventDefault();
                 navigateToHash(currentUser ? ACCOUNT_HASH : LOGIN_HASH);
+                closeMobileMenu();
               }}
             >
               <User size={22} />
@@ -226,6 +265,7 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
               onClick={(event) => {
                 event.preventDefault();
                 navigateToHash(WISHLIST_HASH);
+                closeMobileMenu();
               }}
             >
               <Heart size={22} />
@@ -238,6 +278,7 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
               onClick={(event) => {
                 event.preventDefault();
                 navigateToHash(CART_HASH);
+                closeMobileMenu();
               }}
             >
               <ShoppingCart size={23} />
@@ -250,6 +291,96 @@ function Header({ header, heroSlides, navigation, currentUser, cartCount, wishli
           </div>
         </div>
       </header>
+
+      <div className={`mobile-side-menu-backdrop ${mobileMenuOpen ? 'is-open' : ''}`} onClick={closeMobileMenu} />
+      <aside className={`mobile-side-menu ${mobileMenuOpen ? 'is-open' : ''}`}>
+        <div className="mobile-side-menu-head">
+          <img src={heroSlides.logo} alt="FreshMart" />
+          <button type="button" aria-label="Close menu" onClick={closeMobileMenu}>
+            <X size={22} />
+          </button>
+        </div>
+        <div className="mobile-side-menu-body">
+          <div className="mobile-side-menu-group">
+            {navigation.items.map((item) => (
+              <div className="mobile-side-menu-item" key={`mobile-${item.label}`}>
+                <a
+                  href={getNavHref(item.label)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigateToHash(getNavHref(item.label));
+                    closeMobileMenu();
+                  }}
+                >
+                  {item.label}
+                </a>
+                {item.columns ? (
+                  <div className="mobile-side-menu-sublist">
+                    {item.columns.map((column) => (
+                      <div key={`${item.label}-${column.title}`} className="mobile-side-menu-subgroup">
+                        <strong>{column.title}</strong>
+                        {column.items.map((subItem) => (
+                          <span key={subItem.label}>{subItem.label}</span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+
+          <div className="mobile-side-menu-group">
+            {navigation.utilities.map((utility) => (
+              <a
+                key={utility.label}
+                href={HOME_HASH}
+                onClick={(event) => {
+                  event.preventDefault();
+                  navigateToHash(HOME_HASH);
+                  closeMobileMenu();
+                }}
+              >
+                {utility.label}
+              </a>
+            ))}
+          </div>
+
+          <div className="mobile-side-menu-group mobile-side-menu-account">
+            <a href={currentUser ? ACCOUNT_HASH : LOGIN_HASH} onClick={(event) => {
+              event.preventDefault();
+              navigateToHash(currentUser ? ACCOUNT_HASH : LOGIN_HASH);
+              closeMobileMenu();
+            }}>{currentUser ? currentUser.name : 'Login'}</a>
+            {!currentUser ? (
+              <a href={REGISTER_HASH} onClick={(event) => {
+                event.preventDefault();
+                navigateToHash(REGISTER_HASH);
+                closeMobileMenu();
+              }}>Register</a>
+            ) : null}
+            <a href={WISHLIST_HASH} onClick={(event) => {
+              event.preventDefault();
+              navigateToHash(WISHLIST_HASH);
+              closeMobileMenu();
+            }}>Wishlist</a>
+            <a href={CART_HASH} onClick={(event) => {
+              event.preventDefault();
+              navigateToHash(CART_HASH);
+              closeMobileMenu();
+            }}>Cart ({cartCount})</a>
+            {currentUser ? <button type="button" onClick={() => { onLogout(); closeMobileMenu(); }}>Logout</button> : null}
+          </div>
+
+          {mobileFlatLinks.length ? (
+            <div className="mobile-side-menu-group mobile-side-menu-extra">
+              {mobileFlatLinks.slice(0, 8).map((link) => (
+                <span key={`extra-${link.label}`}>{link.label}</span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </aside>
 
       <div className={`nav-sticky-wrap ${scrolled ? 'is-sticky' : ''}`}>
         <nav className="container nav-row">
